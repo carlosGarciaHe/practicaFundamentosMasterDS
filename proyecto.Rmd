@@ -1,6 +1,6 @@
 ---
 title: "Banco"
-author: "Alberto Corrales"
+author: "Carlos, Alberto y Juan Ramón"
 date: "23/11/2020"
 output:
   html_document:
