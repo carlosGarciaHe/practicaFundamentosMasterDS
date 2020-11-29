@@ -22,7 +22,7 @@ library(Hmisc)
 
 ## Importamos nuestro dataset
 ```{r}
-data = read_csv("BankCustomerdata")
+data = read_csv("BankCustomerdata.csv")
 ```
 
 ```{r}
@@ -835,3 +835,39 @@ d <- describe(train)
 d[c('job','contact','pdays','education','duration','poutcome')]
 ```
 
+### Análisis exploratorio de datos faltantes
+
+```{r}
+library (VIM)
+
+# Sustituimos los valores categóricos 'unknown por NA para poder hacer el análisis exploratorio de datos faltantes con el método aggr. de la librería VIM
+#En primer lugar las variables categóricas
+train$job[train$job == "unknown"]<-NA
+train$contact[train$contact == "unknown"]<-NA
+train$education[train$education == "unknown"]<-NA
+train$poutcome[train$poutcome == "unknown"]<-NA
+#En segundo lugar las variables cuantitativas
+train$duration[train$duration == 0 ]<-NA
+train$pdays[train$pdays == -1]<-NA
+missing_values <- aggr (train,col = c('navyblue','red'), numbers = TRUE, sortVars = TRUE, labels = names (train),cex.axis=0.7,gap=3,ylab=c("Histogram of missing data","Pattern"))
+#Este gráfico nos permite ver fácilmente que las variables poutome y pdays tienen la mayor cantidad de datos faltantes. Con las gráficas no detectamos ningún patrón de co-ocurrencia de los datos faltantes.
+```
+### Aplicamos técnicas de imputación individuales para reemplazar los datos faltantes
+
+1. Imputación de las variables cualitativas (poutcome, job, education, contact) mediante la categoría unknown
+```{r}
+train$job[train$job == "NA"]<-"unknown"
+train$contact[train$contact == "NA"]<-"unknown"
+train$education[train$education == "NA"]<-"unknown"
+train$poutcome[train$poutcome == "NA"]<-"unknown"
+```
+
+2. Imputación de las variables cuantitativas (duration,pdays) 
+    La variable pdays contiene 84,5% de valores faltantes, por lo que consideramos lógico no imputarle ningún valor.
+    La variable duration contiene un 0,8% de valores faltantes. Siendo su distribución de densidad:
+``` {r}
+ggplot(train, aes(x = duration)) +
+  geom_density() +
+  ggtitle('KDE de duracion último contacto')
+```
+    Utilizamos la librería MICE para imputar valores faltantes. La librería MICE sustituye estos valores por valores con una distribución especificamente diseñada para la variable
