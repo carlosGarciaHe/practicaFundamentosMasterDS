@@ -1,36 +1,36 @@
 ---
-title: "Untitled"
-author: "Alberto Corrales"
-date: "30/11/2020"
-output: html_document
+title: "Banco"
+author: "Carlos, Alberto, Juan Ramón"
+date: "23/11/2020"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
 ---
-
-
-```{r, results='hide'}
+# ANÁLISIS EXPLORATORIO VARIABLES
+```{r setup, include=FALSE}
 library(readr)
 library(dplyr)
 library(ggplot2)
 library(gmodels)
 library(Hmisc)
-
 library(moments)
 library(gridExtra)
 library(vcdExtra)
 library(Hmisc)
-library(nortest)
-library(car)
-library(MASS)
-library(forecast)
+```
+
+## Importamos nuestro dataset
+```{r}
+data = read_csv("BankCustomerdata")
 ```
 
 ```{r}
-set.seed(42)
+nrow(data)
 ```
 
 
-```{r}
-data = read_csv("BankCustomerdata.csv")
-```
+Dividimos el dataset original en el conjunto de **train** y **test**.
 
 ```{r}
 n = nrow(data)
@@ -39,604 +39,799 @@ train = data[trainIndex ,]
 test = data[-trainIndex ,]
 ```
 
+```{r}
+nrow(train)
+```
+```{r}
+nrow(test)
+```
 
-### Variable AGE
+```{r, message=FALSE}
+ftable(train$term_deposit)
+```
 
-Variable AGE muestra la edad del cliente con el que se contactó.
+
+
+```{r, message=FALSE}
+ftable(train$term_deposit)
+```
+
+Observamos su estructura y un resumen de las principales variables
+
+```{r}
+summary(train)
+describe(train)
+```
+### VARIABLE AGE
+
+La variable age es una variable cuantitativa situada en la escala de proporción. Dicha variable indica la edad del cliente.
+
+```{r}
+summary(train$age)
+```
+
+De los estadísticos básicos podemos ver que se necesita ser menor de edad para contratar el producto.
+
+Observando las medidas de dispersión:
+
+```{r}
+var(train$age)
+```
+
+```{r}
+sd(train$age)
+```
 
 ```{r}
 describe(train$age)
 ```
 
-Debes ser mayor de edad para contratar el depósito.
-La media de edad de nuestros individuos se encuentra en torno a los 41 años.
+Mostramos la distribución de la variable:
 
-```{r}
+```{r, message=FALSE}
 ggplot(train, aes(x = age)) +
-  geom_histogram(aes(y = ..density..), fill="skyblue2", colour="white") +
+  geom_histogram(fill="skyblue2", colour="white") + geom_density(alpha = .3) +
   ggtitle('Edad del cliente')
+```
 
-ggplot(train,aes(x=age, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = 0) + facet_wrap(~term_deposit) + ggtitle("Edad del cliente")
+```{r, message=FALSE}
+ggplot(train, aes(x = age)) +
+  geom_density(alpha = .3) +
+  ggtitle('KDE de la edad del cliente')
+```
 
+Encontramos que el grueso de clientes se encuentra entorno a la mediana, de 39 años. Observamos también que cerca de los 62 años se produce un descenso considerable de los clientes.
+
+```{r, message=FALSE}
+boxplot(train$age, train = train, col= 'orange')
+```
+
+Hay un considerable número de outliers en las edades avanzadas. Pero en principio no se encuentra necesario realizar transformaciones para mejorar la exploración.
+
+```{r, message=FALSE}
+ggplot(train, aes(x = age, colour = term_deposit)) +
+  geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
+  ggtitle('Edad del cliente')
+```
+
+```{r, message=FALSE}
 ggplot(train ,aes(x=age, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Edad del cliente")
 ```
- 
-Podemos observar como son los jóvenes y los mayores los que mayor probabilidad de contratar el depósito tienen.
 
-Se realiza un logit con la variable edad en forma continua para ver sus resultados.
-
-```{r}
-logit_edad = glm(as.factor(term_deposit) ~ age, family=(binomial(link=logit)), data = train)
-summary(logit_edad)
-```
-Se comprueba como la variable edad en forma continua no es tan significativa ya que el peso de los ancianos se contrarresta con el peso de los jóvenes. Por ello aumentar la variable edad en una unidad no tiene un efecto tan significativo en nuestra variable objetivo.
-
-Tendríamos que sacar el efecto marginal para ver cuanto aumenta realmente la probabilidad de contratar el depósito. Aunque se puede ver que tiene efecto positivo y es significativa al 10% dicha variable.
-
-```{r}
-logitvec_edad = mean(dlogis(predict(logit_edad, type = "link")))
-
-logitvec_edad * coef(logit_edad)
+```{r, message=FALSE}
+ggplot(train, aes(y = age, x = term_deposit)) + geom_violin(aes(fill=term_deposit))+ggtitle("Edad del cliente")
 ```
 
-La probabilidad de contratar el depósito aumenta un 0.0003 cada vez que se incrementa la edad en un año.
+Al comparar las distribuciones de las dos poblaciones, clientes que contratan el producto de los que no, podemos observar que la principal diferencia se encuentra en las edades avanzadas, donde se presenta una mayor densidad de contrataciones. Por lo que esta feature puede ser informativa a la hora de predecir el valor de la variable objetivo.
 
-Se puede apreciar como los más jóvenes y los más mayores tienen mayor probabilidad de contratar el depósito. Queremos ver si estas particularidades tienen efecto que con en una variable continua se podrían obviar.
+### VARIABLE BALANCE
 
-Para ello convertimos nuestra variable continua en una variable categórica.
+La variable balance es una variable cuantitativa situada en la escala de intervalo. Dicha variable indica el saldo del cliente.
 
 ```{r}
-train = train %>% mutate(age_categorica = cut(age, breaks = c(0, 29, 44, 59, 100), right = TRUE, labels = c('Joven','MedianaEdad','Mayores','Ancianos')))
+summary(train$balance)
+```
+
+De los estadísticos básicos podemos ver que existen valores negativos, probablemente indiquen la deuda del cliente.
+
+Observando las medidas de dispersión:
+
+```{r}
+var(train$balance)
 ```
 
 ```{r}
-ftable(train$age_categorica)
-describe(train$age_categorica)
+sd(train$balance)
 ```
-
-```{r}
-train$age_categorica = factor(train$age_categorica, levels=(c('MedianaEdad', 'Joven','Mayores','Ancianos')))
-```
-
-
-```{r}
-levels(train$age_categorica)
-```
-
-```{r}
-with(train, CrossTable(age_categorica, term_deposit, format = 'SPSS'))
-```
-
-```{r}
-ggplot(train, aes(x = age_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Edad del cliente', y = 'prop') + ggtitle("Edad del cliente")
-```
-
-
-Se puede comprobar como las personas de mayor edad y los más jóvenes son los más propensos a contratar el depósito que las personas de mediana edad y que las personas mayores.
-
-Realizamos un logit con esta variable categórica donde la categoría de referencia se encuentra en mediana edad. Aquellas personas entre 30 y 44 años.
-
-```{r}
-logit_edadcat = glm(as.factor(term_deposit) ~ age_categorica, family=(binomial(link=logit)), data = train)
-summary(logit_edadcat)
-```
- 
-Tendríamos que sacar el efecto marginal para ver cuanto aumenta la probabilidad de contratar el depósito respecto a las personas de mediana edad para los jóvenes y para los ancianos. Son estos los que con la evidencia que tenemos son más probables de contratar un depósito.
-
-```{r}
- logitvec_edadcat = mean(dlogis(predict(logit_edadcat, type = "link")))
- logitvec_edadcat * coef(logit_edadcat)
-```
-
-
-Únicamente tendríamos que tener cuidado con la variable Ancianos ya que podría estar mayormente correlada con la profesión del cliente. En concreto con los jubilados(Retired)
-
-
-### Variable BALANCE
-
-Variable que indica el saldo del cliente.
 
 ```{r}
 describe(train$balance)
 ```
 
-Variable tiene saldo negativo lo que podría limitar su transformación aunque existe otra variable en el modelo donde se indica si el cliente está o no en mora.
+Mostramos la distribución de la variable:
 
-La distribución de la variable cuenta con una larga cola que hace complicado estudiar la distribución más allá de los valores iniciales. 
-
-```{r}
-
+```{r, message=FALSE}
 ggplot(train, aes(x = balance)) +
-  geom_histogram(fill="skyblue2", colour="white") + ggtitle('Saldo del cliente')
+  geom_histogram(fill="skyblue2", colour="white") + geom_density(alpha = .3) +
+  ggtitle('Edad del cliente')
+```
 
-ggplot(train, aes(x=balance, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = .5) + facet_wrap(~term_deposit) + ggtitle("Saldo del cliente")
+```{r, message=FALSE}
+ggplot(train, aes(x = balance)) +
+  geom_density(alpha = .3) +
+  ggtitle('KDE de la edad del cliente')
+```
 
-ggplot(train ,aes(x=balance, fill=term_deposit)) + geom_density(alpha = .3) + ggtitle("Saldo del cliente")
+La distribución de la variable cuenta con una larga cola que hace complicado estudiar la distribución más allá de los valores iniciales. Por ello vamos a realizar una transformación logarítmica que suavice el crecimiento al principio y lo acrecente al final.
+
+```{r, message=FALSE}
+ggplot(train, aes(x = log10(balance))) +
+  geom_density(alpha = .3) +
+  ggtitle('KDE del log de la edad del cliente')
+```
+
+Tras la transformación ya comentada no se aprecian características relevantes no observadas en la distribución original.
+
+```{r, message=FALSE}
+boxplot(train$balance, train = train, col= 'orange')
+```
+
+Hay gran cantidad de outliers tanto por encima como por abajo del rango intercuartílico, pero con mayor incidencia en los clientes adinerados. Un efecto usualmente observable en indicadores económicos.
+
+```{r, message=FALSE}
+ggplot(train, aes(x = balance, colour = term_deposit)) +
+  geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
+  ggtitle('Saldo del cliente')
+```
+
+```{r, message=FALSE}
+ggplot(train ,aes(x=balance, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Saldo del cliente")
+```
+
+```{r, message=FALSE}
+ggplot(train ,aes(x=log10(balance), fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Log del saldo del cliente")
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(y = balance, x = term_deposit)) + geom_violin(aes(fill=term_deposit))+ggtitle("Saldo del cliente")
+```
+
+Al comparar las distribuciones de las dos poblaciones, no observamos en principio diferencia, pero tras realizar la transformación logarítmica si encontramos un leve desplazamiento de la distribución de contrataciones hacia saldos más altos de los clientes que no contratan. Aunque leve, esta variable puede que sea informativa en el futuro modelo.
+
+### VARIABLE JOB
+
+Variable categórica en escala nominal, que muestra la profesión del cliente.
+
+Mostramos la tabla de frecuencias absolutas y relativas:
+
+```{r, message=FALSE}
+ftable(train$job)
+```
+
+```{r, message=FALSE}
+prop.table(ftable(train$job))
+```
+
+La categoría más frecuente es la de **unemployed**, seguido de **blue-collar** y **management**.
+
+```{r, message=FALSE}
+ggplot(train, aes(job)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Profesión del cliente")
+```
+
+La cruzamos con la variable objetivo:
+
+```{r, message=FALSE}
+with(train, CrossTable(job, term_deposit, format = 'SPSS'))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(x = job, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según profesión del cliente")
+ggplot(train, aes(x = job, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito resultado campaña anterior")
+```
+
+Estudiante es el estado profesional más propenso a contratar el producto, seguido de retired. Pero todas las profesiones parecen ser buenos discriminadores de la probabilidad de contratación. Por lo que esta variable parece que pueda ser una buena variable predictora.
+
+### VARIABLE MARITAL
+
+Variable categórica en escala nominal. Informa del estado civil del cliente.
+
+Mostramos la tabla de frecuencias absolutas y relativas:
+
+```{r, message=FALSE}
+ftable(train$marital)
+```
+
+```{r, message=FALSE}
+prop.table(ftable(train$marital))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(marital)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Estado civil del cliente")
+```
+
+El estado civil más numeroso es casado.
+
+La cruzamos con la variable objetivo:
+
+```{r, message=FALSE}
+with(train, CrossTable(marital, term_deposit, format = 'SPSS'))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(x = marital, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según estado civil del cliente")
+ggplot(train, aes(x = marital, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Frecuencia de contratación de depósito según estado civil del cliente")
+ggplot(train, aes(x = marital, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 2) + ggtitle("Frecuencia de estado civil del cliente según contratación")
+```
+
+Soltero es el estado civil más propenso a contratar el producto, seguido muy de cerca de los divorciados y bastante alejado se encuentra el grupo de casados. Sin duda esta variable es informativa para un futuro modelo.
+
+### VARIABLE EDUCATION
+
+Variable categórica en escala nominal que informa del nivel educativo del cliente.
+
+Mostramos la tabla de frecuencias absolutas y relativas:
+
+```{r, message=FALSE}
+ftable(train$education)
+```
+
+```{r, message=FALSE}
+prop.table(ftable(train$education))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(education)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Nivel educativo del cliente")
+```
+
+Secondary es el nivel educativo más común seguido de lejos por tertiary y primary. Existe un pequeño porcentaje de clientes que no ha contestado la pregunta.
+
+La cruzamos con la variable objetivo:
+
+```{r, message=FALSE}
+with(train, CrossTable(education, term_deposit, format = 'SPSS'))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(x = education, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según el nivel educativo del cliente")
+ggplot(train, aes(x = education, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Frecuencia de nivel educativo del cliente por contratación")
+ggplot(train, aes(x = education, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 2 )) + facet_wrap(~term_deposit, nrow = 2) + ggtitle("Frecuencia de contratación por nivel educativo del cliente")
 
 ```
 
+El grupo más propenso a contratar el producto es **secondary**. Pero no hay diferencias tan notables como en otras variables categóricas como job o marital.
 
-Se comprueba como no se puede apreciar correctamente las funciones de densidad condicionadas a contratar o no el depósito. Por ello, debemos pensar en transformar nuestra variable.
+El grupo que no hay respondido a esta variable se asemeja a secondary en cuanto a densidad de contrataciones se refiere. Este hecho es recomendable tenerlo en cuenta a la hora de tratar los valores perdidos.
 
-Primero comprobamos como tener saldo negativo es distinto de estar en mora al menos con los datos que tenemos. Por ello, tendríamos que ir con más cuidado a la hora de realizar una transformación logaritmica de nuestra variable.
+### VARIABLE DEFAULT
 
-```{r}
-balance_neg = train %>% filter(balance < 0)
-describe(balance_neg$balance)
-describe(balance_neg$default)
+Variable categórica en escala binaria. Indica si un cliente tiene mora o no.
+
+Mostramos la tabla de frecuencias absolutas y relativas:
+
+```{r, message=FALSE}
+ftable(train$default)
 ```
 
-Las personas que tienen saldo negativo en nuestro data set son 2964 clientes.
-Aunque los clientes que tienen un crédito en mora tan solo son 354. Representa tan solo el 12% del total con saldo negativo.
-
-```{r}
-balance_cero = train %>% filter(balance == 0)
-describe(balance_cero$balance)
-describe(balance_cero$default)
-```
- 
-Se comprueba como aquellos que tienen saldo 0 son 2716 clientes sumándoles aquellos con saldo negativo suponen 5680 observaciones mientras que las personas con mora pertenecientes a esos grupo únicamente suman 448 observaciones.
-
-Por tanto, la variable default no podría explicar aquellas observaciones perdidas al realizar el logaritmo.
-```{r}
-balance_pos = train %>% filter(balance > 0)
-describe(balance_pos$balance)
-
-train = train %>% mutate(log_balance = log10(balance))
-
-describe(train$log_balance)
+```{r, message=FALSE}
+prop.table(ftable(train$default))
 ```
 
-Se transforma la variable mediante el logaritmo para suavizar el crecimiento al principio y acrecentarlo al final.
-
-Al realizar esta transformación se producen valores NaNs. En la variable balance existen 5680 valores en los cuales el cliente no tiene saldo o su saldo es negativo. 
-
-```{r}
-ggplot(train, aes(x = log_balance)) +
-  geom_histogram(fill="skyblue2", colour="white") + ggtitle('Log saldo del cliente')
-
-ggplot(train, aes(x=log_balance, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = .5) + facet_wrap(~term_deposit) + ggtitle("Log saldo del cliente")
-
-ggplot(train ,aes(log_balance, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Log saldo del cliente")
+```{r, message=FALSE}
+ggplot(train, aes(default)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Nivel educativo del cliente")
 ```
 
-Con esta visualización únicamente podemos intuir que aquellas personas con mayor saldo en cuenta tienen mayor probabilidad de contratar un depósito.
+Sin duda el grupo más numeroso con gran diferencia es el de aquellos sin deudas.
 
-Por ello, otra opción que se podría realizar en vez de realizar el logaritmo y perder información se podría categorizar la variable respecto al saldo en cuenta.
+La cruzamos con la variable objetivo:
 
-```{r}
-bal = train %>% filter(balance > 0)
-describe(bal$balance)
-sd(bal$balance)
-IQR(bal$balance)
+```{r, message=FALSE}
+with(train, CrossTable(default, term_deposit, format = 'SPSS'))
 ```
 
-Se dividiría la variable en cuatro categorías.
+```{r, message=FALSE}
+ggplot(train, aes(x = default, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según si el cliente tiene mora")
+ggplot(train, aes(x = default, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Frecuencia de contratación de depósito según si el cliente tiene mora")
 
-Saldos negativos. Siendo la cantidad inferior a 0.
-
-Saldos bajos. De acuerdo a nuestros datos, la media de saldos positivos se encuentra en torno a 1500 euros. Aunque está sesgada debido a la gran cantidad de saldos altos y a una gran dispersión en nuestros datos. Por ello, se aumenta el límite de esta franja hasta los 2000€. La mediana de los datos se encuentra en torno a 635 y el IQR en torno a 1500. 
-
-Saldos medios. Se encuentra cercanos desde la media hasta los 10000 euros. 
-
-Saldos altos. A partir de dicha cantidad teniendo en cuenta la distribución de nuestros datos.
-
-
-```{r}
-train = train %>% mutate(balance_categorica = cut(balance, breaks = c(-10000, 0, 2000, 10000, 105000), right = FALSE, labels = c('Negativo','Bajo','Medio', 'Alto')))
 ```
 
+Como era de esperar, aquellos con deudas pendientes son menos propensos a contratar el producto, por lo que esta variable parece ser una buena canditrain a ser variable predictora.
+
+
+# VARIABLE HOUSING
+La variable housing es una variable dicotomica que muestra si tiene un préstamo hipotecario.
+
+Tabla de frecuencias absolutas y relativas:
 ```{r}
-ftable(train$balance_categorica)
-describe(train$balance_categorica)
+table(train$housing)
+prop.table(table(train$housing))
+```
+De manera gráfica:
+```{r}
+ggplot(train, aes(housing)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Tenencia de préstamo hipotecario")
+```
+Se encuentran balanceado los datos y con mayor proporción en tener un préstamo hipotecario
+
+  
+Si evaluamos la variable housing respecto a nuestra variable objetivo (term_deposit)
+
+```{r}
+with(train, CrossTable(housing, term_deposit, format = 'SPSS'))
+```
+  
+Gráficamente:
+```{r}
+ggplot(train, aes(x = housing, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según tenencia de hipoteca")
+ggplot(train, aes(x = housing, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según tenencia de hipoteca")
+```
+  
+Se comprueba que en términos relativos aquellos que contratan el depósito tienen mayor proporción de individuos que no cuenta con préstamo hipotecario. Al contrario ocurre con los que no contratan el depósito siendo en mayor proporción aquellos que sí tiene una hipoteca.
+
+
+### VARIABLE LOAN
+La variable loan es una variable dicotómica que muestra si el cliente tiene un préstamo personal.  
+
+Al ser una variable categórica realizamos una tabla de frecuencias absoluta y de frecuencias relativa para ver su composición de forma univariante.
+```{r}
+table(train$loan)
+prop.table(table(train$loan))
+```
+De manera gráfica
+```{r}
+ggplot(train, aes(loan)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Tenencia de préstamo personal")
+```
+  
+    
+La gran parte de los clientes no tienen un préstamo personal.  
+
+
+Si evaluamos la variable loan respecto a nuestra variable objetivo (term_deposit)  
+
+```{r}
+with(train, CrossTable(loan, term_deposit, format = 'SPSS'))
+
+```
+Gráficamente:
+```{r}
+ggplot(train, aes(x = loan, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según tenencia de préstamo")
+ggplot(train, aes(x = loan, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según tenencia de préstamo")
+```
+  
+  
+Se comprueba que en términos relativos aquellos que contratan el depósito tienen una proporción parecida a las que no lo contratan en cuanto a la tenencia de préstamo personal. Aunque son aquellos que no contratan el préstamo los que tienen mayor proporción de tener un préstamo personal.
+
+
+### VARIABLE CONTACT
+La variable contact es una variable categórica que indica la forma en la que se contactó con el cliente. (A través de teléfono móvil, fijo, desconocido)
+
+Al ser una variable categórica también realizamos una tabla de frecuencias absoluta y de frecuencias relativa para ver su composición de forma univariante.
+
+```{r}
+ftable(train$contact)
+prop.table(ftable(train$contact))
+```
+Muestra que un gran porcentaje de los clientes fueron contactados a través del teléfono móvil.  
+
+Gráficamente:
+```{r}
+ggplot(train, aes(contact)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Forma de contacto con la persona")
 ```
 
+Si evaluamos la variable contact respecto a nuestra variable objetivo (term_deposit)
 ```{r}
-with(train, CrossTable(balance_categorica, term_deposit, format = 'SPSS'))
+with(train, CrossTable(contact, term_deposit, format = 'SPSS'))
+```
+Gráficamente:
+```{r}
+ggplot(train, aes(x = contact, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según forma de contacto")
+ggplot(train, aes(x = contact, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según forma de contacto")
+```
+  
+  
+Observamos que la gran mayoría de las personas que contrataron el depósito fueron contactadas a través del teléfono móvil.
+
+### VARIABLE MES
+La variable mes es una variable categórica que indica en qué mes se produjo el último contacto con el cliente.  
+Reasignamos los valores de la variable para que aparezcan en orden.
+```{r}
+meses = factor(train$month, levels = (c("jan", "feb", "mar", "apr", "may", "jun",
+                                        "jul", "aug", "sep", "oct", "nov", "dec")))
+```
+  
+  
+Realizamos una tabla de frecuencias absoluta y de frecuencias relativa para ver su composición de forma univariante.  
+```{r}
+ftable(meses)
+prop.table(ftable(meses))
+
+```
+  
+  
+Gráficamente:
+```{r}
+ggplot(train, aes(meses)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Último mes de contacto con el cliente")
+```
+  
+  
+Se observa como mayo fue el mes donde más últimos contactos se produjeron con el cliente
+  
+Si evaluamos la variable mes respecto a nuestra variable objetivo (term_deposit)
+```{r}
+with(train, CrossTable(meses, term_deposit, format = 'SPSS'))
+```
+  
+  
+Gráficamente:
+```{r}
+ggplot(train, aes(x = meses, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según mes de último contacto")
+
+ggplot(train, aes(x = meses, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según mes de último contacto")
+
+```
+  
+Se observa como las personas que contrataron el depósito fueron contactadas por última vez con mayor proporción en torno a los meses centrales del año.
+
+#### Relación de las variables categóricas con la variable objetivo
+```{r}
+mosaic(xtabs(~ term_deposit + loan + contact, data = train), split_vertical = TRUE, shade = TRUE, main = 'Contratación de depósito', sub = 'Según formas de contacto y crédito')
+
 ```
 
-Al establecer las categorías en base a nuestros datos de entrenamiento se podría caer también en overfitting.
-
+### VARIABLE DAY
+  
+Es una variable continua que abarca valores entre los 31 días del mes.
 ```{r}
-ggplot(train, aes(x = balance_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Saldo en cuenta cliente', y = 'prop') + ggtitle("Saldos del cliente")
-```
-
-Se aprecia como a medida que crecen los saldos, la probabilidad de contratar un depósito aumenta.
-
-
-### Variable DAYS
-
-Variable días muestra en qué día del mes se contacto con el cliente.
-
-```{r}
+summary(train$day)
 describe(train$day)
 ```
 
+Encontramos los principales estadísticos generales como las medidas de centralidad de la variable
+  
+Medidas de dispersión:
+```{r}
+sd(train$day)
+IQR(train$day)
+```
+
+Para ver la distribución de la variable gráficamente:
 ```{r}
 ggplot(train, aes(x = day)) +
-  geom_histogram(aes(y = ..density..), fill="skyblue2", colour="white") +
-  ggtitle('Día del mes')
+  geom_histogram(fill="skyblue2", colour="white") + geom_density(alpha = .3) +
+  ggtitle('Día del mes de contacto')
+ggplot(train, aes(x = day)) +
+  geom_density(alpha = .3) +
+  ggtitle('KDE del día de contacto')
 
-ggplot(train,aes(x=day, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = 0) + facet_wrap(~term_deposit) + ggtitle("Día del mes")
+```
+  
+Podemos diferenciar tres grupos distintos de datos en la variable. Podríamos convertirla en una variable categórica con 3 categorías.
 
-ggplot(train ,aes(x=day, fill=term_deposit)) + geom_density(alpha = .3) + ggtitle("Día del mes")
+```{r}
+train[,'dia_mes'] = cut(train$day, breaks = c(0, 10, 20, 31), labels = c('InicioMes','MedioMes','FinalMes'))
+```
+
+Al convertirla en una variable categórica podemos sacar una tabla con sus frecuencias.
+```{r}
+ftable(train$dia_mes)
+prop.table(ftable(train$dia_mes))
+```
+
+Gráficamente:
+```{r}
+ggplot(train, aes(dia_mes)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Día de último contacto con el cliente")
+```
+  
+Si evaluamos la variable días respecto a nuestra variable objetivo (term_deposit)
+```{r}
+with(train, CrossTable(dia_mes, term_deposit, format = 'SPSS'))
+```
+  
+Gráficamente:
+```{r}
+ggplot(train, aes(x = dia_mes, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según día de contacto")
+
+ggplot(train, aes(x = dia_mes, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según día de contacto")
 
 ```
  
-No se aprecia un patrón claro, salvo distintos picos que nos permite dividir la variable en tres partes. 
+  
+No existe un patrón específico para la contratación del depósito dependiendo de cuál fue el último día de contacto con el cliente.  
 
-La variable de forma continua no tiene interpretación clara. Por este motivo, se transforma la variable para ver si se encuentra alguna característica relevante en ella.
+Teniendo mayor proporción de contratación entre los días 10 y 20 del mes (Medio Mes)  
 
+### VARIABLE DURATION
+Es una variable cuantitativa que muestra la duración en segundos del último contacto mantenido con el cliente.
 ```{r}
-train = train %>% mutate(day_categorica = cut(day, breaks = c(0, 10, 20, 31), labels = c('InicioMes','MedioMes','FinalMes')))
-```
-
-```{r}
-ftable(train$day_categorica)
-describe(train$day_categorica)
-```
-
-```{r}
-with(train, CrossTable(day_categorica, term_deposit, format = 'SPSS'))
-```
-
-```{r}
-ggplot(train, aes(x = day_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Día de contacto', y = 'prop') + ggtitle("Día de contacto")
-```
- 
-Como podemos observar no existe un patrón claro a la hora de encontrar diferencias significativas en la probabilidad de contratar un depósito dependiendo del día del mes en el que se contactó con el cliente.
-
-Únicamente existe una mayor probabilidad a la hora de contratar un depósito a principio de mes, pero sin diferencias significativas.
-
-
-### Variable DURATION
-Es una variable cuantitativa que muestra la duración en segundos del último contacto mantenido con el cliente. 
-```{r}
+summary(train$duration)
 describe(train$duration)
 ```
 
-Variable complicada ya que puede estar muy correlacionada con la variable dependiente.
+Las medidas de centralidad de la variable duración son 177 la mediana y 256 la media.
+Lo que nos muestra que la variable tiene cierta asimetría a la derecha al ser la media mayor a la mediana.
 
+```{r}
+skewness(train$duration)
+kurtosis(train$duration)
+```
+  +
+  
+Se comprueba que el coeficiente de asimetría es distinto a 0 y positivo.  
+Por otro lado la curtosis es diferente de 3 (Normal) y es Leptocúrtica, forma más puntiaguda que la Normal.
+
+En cuanto a las medidas de dispersión.
+```{r}
+sd(train$duration)
+IQR(train$duration)
+
+```
+  
+  
+Gráficamente:
 ```{r}
 ggplot(train, aes(x = duration)) +
-  geom_histogram(fill="skyblue2", colour="white") + ggtitle('Duracion contacto con el cliente')
-
-ggplot(train, aes(x=duration, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = .5) + facet_wrap(~term_deposit) + ggtitle("Duracion contacto con el cliente")
-
-ggplot(train ,aes(x=duration, fill=term_deposit)) + geom_density(alpha = .3) + ggtitle("Duracion contacto con el cliente")
+  geom_histogram(fill="skyblue2", colour="white") +
+  ggtitle('Duracion último contacto')
+ggplot(train, aes(x = duration)) +
+  geom_density() +
+  ggtitle('KDE de duracion último contacto')
 ```
-
-Se comprueba como el estar mayor tiempo de contacto con el cliente afecta positivamente a la probabilidad de contratar el depósito.
-
-Se estudia las posibles transformaciones de la variable duration.
+  
+Se comprueba como la variable duración cuenta con muchos valores de su distribución en cantidades muy pequeñas y menos valores en cantidades grandes.  
+Podríamos transformar la variable para obtener mayor normalidad en su distribución.
 
 ```{r}
-symbox(~duration, data = train)
-
-duration_pos = train %>% filter(duration > 0)
-BoxCox.lambda(duration_pos$duration, method = 'loglik', lower = -5, upper = 5)
-boxcox(duration_pos$duration ~1)
-```
-
- 
-La transformación más aproximada es el logaritmo. Se mira cuantos valores existen a los que no se le puede aplicar y deberían ser eliminados.
-
-Se transforma la variable mediante el logaritmo para suavizar el crecimiento al principio y acrecentarlo al final.
-
-```{r}
-duration_cero = train %>% filter(duration == 0)
-describe(duration_cero$duration)
-
-
-train = train %>% mutate(log_duration = log10(duration))
-
-describe(train$log_duration)
+boxplot(train$duration, train = train, col= 'orange')
 
 ```
+  
+Se comprueba la gran cantidad de atípicos en valores superiores de esta distribución lo que sugiere una transformación de sus datos.
 
-Al aplicar logaritmo existen tres valores iguales a 0 que se deberían eliminar.
+  
+Respecto a nuestra variable de interés (Term_deposit)
 
 ```{r}
-ggplot(train, aes(x = log_duration)) +
-  geom_histogram(fill="skyblue2", colour="white") + ggtitle('Log duracion contacto con el cliente')
+ggplot(train, aes(x = duration, colour = term_deposit)) +
+  geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
+  ggtitle('Duración de último contacto con el cliente')
+ggplot(train ,aes(x=duration, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Duración último contacto con el cliente")
+```
 
-ggplot(train, aes(x=log_duration, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = .5) + facet_wrap(~term_deposit) + ggtitle("Log duracion contacto con el cliente")
+```{r}
+ggplot(train, aes(y = duration, x = term_deposit)) + geom_violin(aes(fill=term_deposit))+ggtitle("Duración último contacto con el cliente")
 
-ggplot(train ,aes(log_duration, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Log duracion contacto con el cliente")
 
 ```
 
-Se aprecia como aquellas personas con mayor duración del contacto son las que tienen mayor probabilidad de contratar el depósito. Aunque es una variable muy correlacionada con la variable objetivo.
-
-
-### Variable CAMPAIGN
-Número de veces que se ha contactado con un cliente en la campaña actual
-
+### VARIABLE CAMAPIGN
+Es una variable cuantitativa que muestra el número de contactos en esta campaña hacia un cliente.
 ```{r}
+summary(train$campaign)
 describe(train$campaign)
 ```
 
-Se aprecia como la mediana, es decir el 50% de la población recibió dos contactos o menos. Así como solo un 10% de la población recibió más de 5 contactos.
+Encontramos los valores de los estadísticos generales donde el 75% de los clientes recibieron menos de 3 contactos.
+Las medidas de centralidad de esta variable es la mediana con 2 contactos por cliente en esta campaña.
 
+```{r}
+skewness(train$campaign)
+kurtosis(train$campaign)
+```
+Esta variable también tiene asimetría hacia la derecha como podemos comprobar al ser mayor que 0 el coeficiente de asimetría.  
+
+Por otro lado, la curtosis es diferente de 3 (Normal) y es Leptocúrtica, forma más puntiaguda que la Normal.
+
+En cuanto a las medidas de dispersión.
+```{r}
+sd(train$campaign)
+IQR(train$campaign)
+```
+
+Gráficamente:
 ```{r}
 ggplot(train, aes(x = campaign)) +
-  geom_histogram(aes(y = ..density..), fill="skyblue2", colour="white") +
-  ggtitle('Nº de contactos con el cliente actual campaña')
+  geom_histogram(fill="skyblue2", colour="white") +
+  ggtitle('Número de contactos al cliente')
+boxplot(train$campaign, train = train, col= 'orange')
+```
+  
+  
+Se comprueba la gran existencia de outliers en la distribución de esta variable. Se debería transformar la variable.
 
-ggplot(train,aes(x=campaign, fill = term_deposit)) + geom_histogram() + facet_wrap(~term_deposit) + ggtitle("Nº de contactos con el cliente actual campaña")
+  
+Con respecto a la variable de interés
+```{r}
+ggplot(train, aes(x = campaign, colour = term_deposit)) +
+  geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
+  ggtitle('Numero de contactos al cliente en esta campaña')
 
-ggplot(train,aes(x=campaign, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + facet_wrap(~term_deposit) + ggtitle("Nº de contactos con el cliente actual campaña")
+ggplot(train,aes(x=campaign, colour=term_deposit)) + geom_freqpoly(bindwidth = 0.5) + ggtitle("Numero de contactos al cliente en esta campaña")
 
 ```
 
-
-Se aprecia como aquellas personas con la que menos se ha contactado son las que más probabilidades tienen de contratar un depósito.
-
 ```{r}
-with(train, CrossTable(campaign, term_deposit, format = 'SPSS'))
-
+ggplot(data = train) + geom_boxplot(aes(x= term_deposit, y=campaign, fill = term_deposit))
 ```
 
-Se realiza una tabla cruzada con la variable objetivo para ver ver más detalladamente la composición de la variable. 
+Con esta representación del diagrama de caja, se comprueba la necesidad de transformar la variable.
 
+### VARIABLE PDAYS
+  
+La variable pdays es una variable cuantitativa que muestra los días que han pasado desde que se contactó con él en la anterior campaña
 ```{r}
-ggplot(train, aes(x = campaign, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Nº de contactos con el cliente', y = 'prop') + ggtitle("Nº de contactos con el cliente")
-```
-
-
-Se comprueba como contactar solo una vez con el cliente tiene mayor probabilidad de contratar el depósito y esta va decreciendo conforme aumenta en una unidad el número de contactos con el cliente. 
-
-Posibles transformaciones. 
-Yo dejaría la variable tal y como está dado que un aumento en el número de contactos reduce la probabilidad de contratar el depósito. Aunque tendría en cuenta los outliers y los trataría.
-
-Se realiza un logit con la variable objetivo para ver sus resultados.
-
-```{r}
-logit = glm(as.factor(term_deposit) ~ campaign, family=(binomial(link=logit)), data = train)
-summary(logit)
-```
- 
-Tendríamos que sacar el efecto marginal para ver cuanto se reduce realmente la probabilidad de contratar el depósito. Aunque se puede ver que tiene efecto negativo y es significativa dicha variable
-
-```{r}
- logitvec = mean(dlogis(predict(logit, type = "link")))
- logitvec * coef(logit)
-```
-
-El efecto provoca que un aumento del contacto con el cliente en una unidad provoca que la probabilidad de contratar el depósito se reduzca en 0.0093.
-
-Otras opciones sería realizar una variable categórica binaria a tal efecto. 
-Dividiéndose en haber tenido un contacto o más de un contacto lo cual reduce la probabilidad de contratar un depósito.
-
-```{r}
-train = train %>% mutate(campaign_binaria = cut(campaign, breaks =  c(1, 2, 300), right = FALSE, include.lowest = TRUE, labels = c('1Contacto', '+1Contacto')))
-```
-
-
-```{r}
-ftable(train$campaign_binaria)
-```
-
-```{r}
-describe(train$campaign_binaria)
-with(train, CrossTable(campaign_binaria, term_deposit, format = 'SPSS'))
-```
-
-
-```{r}
-ggplot(train, aes(x = campaign_binaria, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Nº de contactos con el cliente', y = 'prop') + ggtitle("Nº de contactos con el cliente")
-```
-
-Se aprecia como tener un solo contacto con el cliente aumenta su probabilidad de contratar al depósito al contrario ocurre cuando contactas con el cliente más de una vez.
-
-```{r}
-train$campaign_binaria = factor(train$campaign_binaria, levels=(c('+1Contacto', '1Contacto')))
-```
-
-```{r}
-levels(train$campaign_binaria)
-```
- 
-Estamos metiendo como variable de referencia a la variable que cuenta con mayor número de observaciones.
-
-```{r}
-logit_uno = glm(as.factor(term_deposit) ~ campaign_binaria, family=(binomial(link=logit)), data = train)
-summary(logit_uno)
-```
-
-```{r}
- logitvec_uno <- mean(dlogis(predict(logit_uno, type = "link")))
- logitvec_uno * coef(logit_uno)
-```
-
-Tener solo un contacto aumenta la probabilidad de contratar el depósito alrededor del 3.3% respecto a tener más de un contacto.
-
-También se puede dividir la variable en 6 categorias ya que el 90% de los clientes han tenido menos de 5 contactos.
-
-```{r}
-train = train %>% mutate(campaign_categorica = cut(campaign, breaks =  c(1, 2, 3, 4, 5, 6, 300), right = FALSE, include.lowest = TRUE, labels = c(' 1 Contacto', ' 2 Contactos', '3 Contactos', '4 Contactos', '5 Contactos', '+ 5 Contactos')))
-```
-
-```{r}
-ftable(train$campaign_categorica)
-```
-
-```{r}
-describe(train$campaign_categorica)
-with(train, CrossTable(campaign_categorica, term_deposit, format = 'SPSS'))
-```
-
-```{r}
-ggplot(train, aes(x = campaign_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Nº de contactos con el cliente', y = 'prop') + ggtitle("Nº de contactos con el cliente")
-```
-
-Se comprueba como a medida que se elevan los contactos la probabilidad de contratar un depósito se va reduciendo. 
-
-```{r}
-logit_dos = glm(as.factor(term_deposit) ~ campaign_categorica, family=(binomial(link=logit)), data = train)
-summary(logit_dos)
-```
-
-
-```{r}
- logitvec_dos = mean(dlogis(predict(logit_dos, type = "link")))
- logitvec_dos * coef(logit_dos)
-```
-
-Podemos comprobar como a medida que van aumentando los contactos se va reduciendo en mayor medida la probabilidad de contratar un depósito respecto a tener un único contacto.
-
-Sería interesante tratar esta variable como una variable discreta en la cual el aumento de contactos con el cliente redujese la probabilidad de contratar el depósito. Si penaliza este aumento creciente en los contactos aunque se traduce en menor efecto para pocos contactos que cuando tratamos con variables categóricas o binarias
-
-### Variable PDAYS
- 
-Muestra los días que han pasado desde que se contactó con el cliente en la campaña anterior.
-
-```{r}
+summary(train$pdays)
 describe(train$pdays)
 ```
+La variable muestra con -1 aquellas personas que no habían recibido contacto en ninguna campaña anterior.
 
-Existen clientes con los que no se ha contactado en la campaña anterior.
-En su gran mayoría no se ha contactado anteriormente con este cliente indicándose en la base de datos con valor -1.
+Forma de la variable:
+```{r}
+skewness(train$pdays)
+kurtosis(train$pdays)
+```
 
+La variable es right skewed es decir tiene asimetría positiva.
+También es leptocúrtica, más puntiaguda que una variable con distribución normal.
+  
+En cuanto a la dispersión en esta variable:
+```{r}
+sd(train$pdays)
+IQR(train$pdays)
+```
+El IQR es 0 ya que el 75% de los clientes no habían sido contactados en ninguna campaña anterior.
+  
+Gráficamente:
 ```{r}
 ggplot(train, aes(x = pdays)) +
   geom_histogram(fill="skyblue2", colour="white") +
-  ggtitle('Número dias desde último contacto en campañas anteriores')
-
-ggplot(train,aes(x=pdays, fill=term_deposit)) + geom_histogram() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Número días desde último contacto en campañas anteriores")
-
-ggplot(train,aes(x=pdays, fill=term_deposit)) + geom_histogram(aes(y = ..density..)) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Número días desde último contacto en campañas anteriores")
+  ggtitle('Número dÃ�as desde último contacto en campañas anteriores')
+boxplot(train$pdays, train = train, col= 'orange')
 ```
+
  
-No se pueden apreciar ninguna característica adiccional en esta variable dado el gran peso que tiene no haber contactado anteriormente con el cliente en nuestra base de datos.
+Se comprueba la gran existencia de outliers en la distribución. Se debería transformar la variable.  
 
-Para poder encontrar algún patrón que influya en la variable objetivo debemos mirar con mayor precisión. Por ello, evaluamos el 25% de los datos restantes para poder extraer una conclusión en base al número de días que pasaron desde que se contactó en la anterior campaña.
-
+Respecto a la variable de interés
 ```{r}
-pdays_pos = train %>% filter(pdays != -1)
-describe(pdays_pos$pdays)
-
-ggplot(pdays_pos, aes(x = pdays, colour = term_deposit)) +
+ggplot(train, aes(x = pdays, colour = term_deposit)) +
   geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
   ggtitle('Número días desde último contacto en campañas anteriores')
 
-ggplot(pdays_pos,aes(x=pdays, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = 0) + facet_wrap(~term_deposit) + ggtitle("Número días desde último contacto en campañas anteriores")
+ggplot(train,aes(x=pdays, colour=term_deposit)) + geom_freqpoly(bindwidth = 0.5) + ggtitle("Número días desde último contacto en campañas anteriores")
 
-ggplot(pdays_pos ,aes(x=pdays, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Número días desde último contacto en campañas anteriores")
-```
- 
-Se puede apreciar como con aquellas personas que se contacta antes de los  primeros 210 días (7 meses) existe una mayor proporción a la hora de contratar el depósito que respecto a las personas con las que se tarda en contactar mas tiempo respecto de la campaña anterior.
 
-La mediana se encuentra en 224 días. Por ello, realizamos el corte dada la distribución y visualización de datos en una medida fácil de entender como son 7 meses = 210 días.
-
-Para poder ver si esta variable es útil para nuestro objetivo, procedemos a crear una nueva variable categórica.
-
-```{r}
-train = train %>% mutate(pdays_categorica = cut(pdays, breaks =  c(-1, 0, 210, 536), right = FALSE, include.lowest = TRUE, labels = c('No contacto', '<7 Meses', '>7 Meses')))
 ```
 
 ```{r}
-ftable(train$pdays_categorica)
+ggplot(data = train) + geom_boxplot(aes(x= term_deposit, y=pdays, fill = term_deposit))
 ```
 
+Se observa que es necesaria la transformación de la variable pdays dada su distribución.
+
+### VARIABLE POUTCOME
+  
+La variable poutcome es una variable cualitativa polítoma que muestra el resultado de contratación de la última campaña con respecto a cada cliente. Los cuatro valores categóricos son: "failure","other","success" y "unknown"
+
 ```{r}
-describe(train$pdays_categorica)
-with(train, CrossTable(pdays_categorica, term_deposit, format = 'SPSS'))
+poutcome = factor(train$poutcome, levels = (c("failure","other","success","unknown")))
 ```
 
+  
+    
+Realizamos una tabla de frecuencias absoluta y de frecuencias relativa para ver su composición de forma univariante.  
 
 ```{r}
-ggplot(train, aes(x = pdays_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Contacto desde anterior campaña', y = 'prop') + ggtitle("Tiempo de contacto desde la anterior campaña")
+ftable(poutcome)
+prop.table(ftable(poutcome))
 ```
- 
-El gráfico muestra como aquellos con los que se volvió a contactar en menos de 7 meses desde la campaña anterior tienen mayor probabilidad de contratar el depósito que con los que se contactó después de esos 7 meses o incluso no se había contactado anteriormente.
-
-
-### Variable Previous
-
-Variable cuantitativa que muestra el número de contactos que se realizaron al cliente en campañas anteriores.
+  
+  
+Gráficamente:
 
 ```{r}
+ggplot(train, aes(poutcome)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Resultado de la campaña anterior con el cliente")
+```
+  
+
+  
+  
+Si evaluamos la variable poutcome con respecto a nuestra variable objetivo (term_deposit)
+```{r}
+with(train, CrossTable(poutcome, term_deposit, format = 'SPSS'))
+```
+  
+  
+Gráficamente:
+```{r}
+ggplot(train, aes(x = poutcome, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según resultado campaña anterior")
+
+ggplot(train, aes(x = poutcome, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito resultado campaña anterior")
+```
+  
+  
+Se observa como las personas que adquirieron la oferta de la campaña anterior un número significativo vuelve a contratar la campaña actual siendo un 52.35% que sí adquiere frente a un 47.65 que no adquiere el producto de esta campaña
+
+### VARIABLE Previous
+  
+Es una variable continua que indica el número de llamadas realizadas a este cliente antes de esta campaña.
+```{r}
+summary(train$previous)
 describe(train$previous)
 ```
 
-Se aprecia como el 75% de los clientes no había sido contactado anteriormente al igual que en la variable pdays. 
-
-También notar que un 15% de los clientes únicamente había sido contactado 1 vez y sólo un 5% más de 3 veces.
-
+Encontramos los principales estadísticos generales como las medidas de centralidad de la variable
+  
+Medidas de dispersión:
 ```{r}
+sd(train$previous)
+IQR(train$previous)
+```
+
+Para ver la distribución de la variable gráficamente:
+
+**Eliminamos los datos atípicos, puesto que hay una instancia con 275 llamadas antes de esta campaña
+```{r}
+
 ggplot(train, aes(x = previous)) +
-  geom_histogram(fill="skyblue2", colour="white") +
-  ggtitle('Número de contactos en campañas anteriores')
+  geom_bar(fill="skyblue2", colour="white") + geom_density(alpha = .3) +
+  ggtitle('Número de llamadas realizadas a este cliente antes de esta campaña')+coord_cartesian(xlim=c(0,10))
 
-ggplot(train,aes(x=previous, fill=term_deposit)) + geom_histogram() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Número de contactos en campañas anteriores")
+ggplot(train, aes(x = previous)) +
+  geom_density(alpha = .3) +
+  ggtitle('KDE del número de llamadas realizadas a este cliente antes de esta campaña')+coord_cartesian(xlim=c(0,10))
 
-ggplot(train,aes(x=previous, fill=term_deposit)) + geom_histogram(aes(y = ..density..)) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Número de contactos en campañas anteriores")
+
+ggplot(train, aes(x = previous), colour=factor(term_deposit)) +
+  geom_bar(fill="skyblue2",) + geom_density(alpha = .3) +
+  ggtitle('Número de llamadas realizadas a este cliente antes de esta campaña')+coord_cartesian(xlim=c(0,10))+
+  facet_wrap(~term_deposit)
+
+ggplot(train, aes(x = previous), colour=factor(term_deposit)) +
+  geom_density(fill="skyblue2",) +
+  ggtitle('Número de llamadas realizadas a este cliente antes de esta campaña')+coord_cartesian(xlim=c(0,10))+
+  facet_wrap(~term_deposit)
+
+
 ```
- 
- 
-No se puede apreciar ninguna característica adiccional en esta variable dado el gran peso que tiene no haber tenido ningún contacto anteriormente con el cliente en campañas anteriores en la base de datos.
 
-Para poder encontrar algún patrón que influya en la variable objetivo debemos mirar con mayor precisión. Se evalua el 25% de los datos restantes para poder extraer una conclusión en base al número de veces que se contactó con el cliente en campañas anteriores.
+Se observa que los clientes que adquieren el depósito han recibido mayor número de llamadas media en anteriores campañas frente a los que no adquieren el producto.
 
+### VARIABLE term_deposit - variable respuesta
+  
+La variable term_deposit (variable binaria) indica si el cliente suscribe el depósito ("sí","no")
 ```{r}
-previous_pos = train %>% filter(previous >0)
-describe(previous_pos$previous)
+prop.table(table(train$term_deposit))
+ggplot(train,aes(term_deposit))+geom_bar(fill="green")+ggtitle("Se suscribe el cliente?")
 
-ggplot(previous_pos, aes(x = previous, colour = term_deposit)) +
-  geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
-  ggtitle('Número de contactos en campañas anteriores')
+pairs( age ~ duration + campaign + previous, data=train, main="Gráfico - Matriz de dispersión")
 
-ggplot(previous_pos,aes(x=previous, fill = term_deposit)) + geom_histogram(aes(y = ..density..), bins = 50) + facet_wrap(~term_deposit) + ggtitle("Número de contactos en campañas anteriores")
 
+library(corrplot)
+train %>% select(age,balance,day, duration, campaign, pdays, previous) %>% cor( method ="spearman") %>% corrplot()
 ```
- 
-Para toda la muestra obviando aquellos a los que no se contactó. El 95% tuvo menos de 8 contactos.
 
-También se comprueba como a medida que va creciendo el número de contactos la probabilidad de contratar un depósito se reduce siendo ínfima cuando se supera el número de 10 contactos.
+En el caso de que observamos que el conjunto de train se encuentra tan desbalanceado respecto a la variable objetivo que no permite ajustar el modelo, realizaríamos un balanceo. Por ello, vamos a aplicar Random Under Sampling para tratar de disminuir la diferencia entre ambas categorías.
 
-Analizando más al detalle obviando outliers. Se puede ver la composición de la variable
+```{r include = FALSE}
+negativeIndex = sample(which(train$term_deposit == 'no'), size = round(0.12*n), replace=FALSE)
+negative_train = train[negativeIndex ,]
+train <- rbind(negative_train, train[train$term_deposit == 'yes',])
+```
 
+
+## Tratamiento de datos faltantes
+
+Las columnas que presentan datos faltantes son:
+
+1. Job: type of job (categorical: 'admin.','blue-collar','entrepreneur','housemaid','management','retired','self-employed','services','student','technician','unemployed','unknown')
+2. Contact: contact communication type (categorical: 'cellular','telephone')
+3. Pdays: number of days that passed by after the client was last contacted from a previous campaign (numeric; 999 means client was not previously contacted)
+4. Education: (categorical: 'basic.4y','basic.6y','basic.9y','high.school','illiterate','professional.course','university.degree','unknown')
+5. Duration: last contact duration, in seconds (numeric). Important note: this attribute highly affects the output target (e.g., if duration=0 then y='no'). Yet, the duration is not known before a call is performed. Also, after the end of the call y is obviously known. Thus, this input should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model.
+6. Poutcome: outcome of the previous marketing campaign (categorical: 'failure','nonexistent','success')
+
+
+Utilizamos la función describe de la librería Hmis para mostrar la información estadística de las variables que presentan datos faltantes.
 ```{r}
-previous_pos = train %>% filter(previous >0 & previous <= 30)
-describe(previous_pos$previous)
-
-ggplot(previous_pos, aes(x = previous, colour = term_deposit)) +
-  geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
-  ggtitle('Número de contactos en campañas anteriores')
-
-ggplot(previous_pos,aes(x=previous, fill = term_deposit)) + geom_histogram(aes(y = ..density..), bins = 50) + facet_wrap(~term_deposit) + ggtitle("Número de contactos en campañas anteriores")
-
+d <- describe(train)
+d[c('job','contact','pdays','education','duration','poutcome')]
 ```
 
-Por último, realizamos una tabla cruzada para ver más detalladamente la composición de la variable.
-
-```{r}
-with(train, CrossTable(previous, term_deposit, format = 'SPSS'))
-```
-
-Una vez analizada mediante esta tabla lo más razonable sería realizar una transformación de la variable cuantitativa en una variable binaria dependiendo de si se ha contactado anteriormente o no con el cliente.
-
-En torno al 85% de los clientes no habían sido contactados previamente.
-
-```{r}
-train = train %>% mutate(previous_categorica = cut(previous, breaks =  c(0, 1, 300), right = FALSE, include.lowest = TRUE, labels = c('Sin Contacto previo', 'Contacto previo')))
-```
-
-```{r}
-ftable(train$previous_categorica)
-```
-
-```{r}
-describe(train$previous_categorica)
-with(train, CrossTable(previous_categorica, term_deposit, format = 'SPSS'))
-```
-```{r}
-ggplot(train, aes(x = previous_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Contacto en campaña anterior', y = 'prop') + ggtitle("Contacto en la anterior campaña")
-```
- 
-El gráfico muestra como aquellos con los que se contactó previamente tienen mayor probabilidad de contratar un depósito que aquellos con los que no se había contactado en la campaña anterior.
-
-Variable muy relacionada con pdays ya que determina el número de días que pasó desde que se contactó con el cliente en la campaña mientras que pdays determina el número de días que pasaron desde que se contactó en campañas anteriores con el cliente.
-
-Si se introduce una de las dos variables no se debe introducir la otra por problemas de multicolinealidad.
