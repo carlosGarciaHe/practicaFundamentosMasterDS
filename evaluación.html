@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>5 Evaluación | Banco</title>
+  <meta name="description" content="5 Evaluación | Banco" />
+  <meta name="generator" content="bookdown 0.21 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="5 Evaluación | Banco" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="5 Evaluación | Banco" />
+  
+  
+  
+
+<meta name="author" content="Carlos, Alberto y Juan Ramón" />
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="modelado.html"/>
+
+<script src="book_assets/jquery-2.2.3/jquery.min.js"></script>
+<link href="book_assets/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="book_assets/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="book_assets/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="book_assets/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="book_assets/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="book_assets/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="book_assets/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+
+<script src="book_assets/accessible-code-block-0.0.1/empty-anchor.js"></script>
+<link href="book_assets/anchor-sections-1.0/anchor-sections.css" rel="stylesheet" />
+<script src="book_assets/anchor-sections-1.0/anchor-sections.js"></script>
+
+
+<style type="text/css">
+code.sourceCode > span { display: inline-block; line-height: 1.25; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li class="chapter" data-level="1" data-path="introducción-y-objetivos.html"><a href="introducción-y-objetivos.html"><i class="fa fa-check"></i><b>1</b> Introducción y objetivos</a><ul>
+<li class="chapter" data-level="1.1" data-path="introducción-y-objetivos.html"><a href="introducción-y-objetivos.html#introducción"><i class="fa fa-check"></i><b>1.1</b> Introducción</a></li>
+<li class="chapter" data-level="1.2" data-path="introducción-y-objetivos.html"><a href="introducción-y-objetivos.html#objetivos"><i class="fa fa-check"></i><b>1.2</b> Objetivos</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html"><i class="fa fa-check"></i><b>2</b> ANÁLISIS EXPLORATORIO VARIABLES</a><ul>
+<li class="chapter" data-level="2.1" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#importación-dataset"><i class="fa fa-check"></i><b>2.1</b> Importación dataset</a></li>
+<li class="chapter" data-level="2.2" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#división-en-train-y-test"><i class="fa fa-check"></i><b>2.2</b> División en train y test</a></li>
+<li class="chapter" data-level="2.3" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#estructura-y-resumen-de-train"><i class="fa fa-check"></i><b>2.3</b> Estructura y resumen de train</a></li>
+<li class="chapter" data-level="2.4" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#exploratorio-univariante-de-las-variables-predictoras"><i class="fa fa-check"></i><b>2.4</b> Exploratorio univariante de las variables predictoras</a><ul>
+<li class="chapter" data-level="2.4.1" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-age"><i class="fa fa-check"></i><b>2.4.1</b> Variable age</a></li>
+<li class="chapter" data-level="2.4.2" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-balance"><i class="fa fa-check"></i><b>2.4.2</b> Variable balance</a></li>
+<li class="chapter" data-level="2.4.3" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-job"><i class="fa fa-check"></i><b>2.4.3</b> Variable job</a></li>
+<li class="chapter" data-level="2.4.4" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-marital"><i class="fa fa-check"></i><b>2.4.4</b> Variable marital</a></li>
+<li class="chapter" data-level="2.4.5" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-education"><i class="fa fa-check"></i><b>2.4.5</b> Variable education</a></li>
+<li class="chapter" data-level="2.4.6" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-default"><i class="fa fa-check"></i><b>2.4.6</b> Variable default</a></li>
+<li class="chapter" data-level="2.4.7" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-housing"><i class="fa fa-check"></i><b>2.4.7</b> Variable housing</a></li>
+<li class="chapter" data-level="2.4.8" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-loan"><i class="fa fa-check"></i><b>2.4.8</b> Variable loan</a></li>
+<li class="chapter" data-level="2.4.9" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-contact"><i class="fa fa-check"></i><b>2.4.9</b> Variable contact</a></li>
+<li class="chapter" data-level="2.4.10" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-mes"><i class="fa fa-check"></i><b>2.4.10</b> Variable mes</a></li>
+<li class="chapter" data-level="2.4.11" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-day"><i class="fa fa-check"></i><b>2.4.11</b> Variable day</a></li>
+<li class="chapter" data-level="2.4.12" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-duration"><i class="fa fa-check"></i><b>2.4.12</b> Variable duration</a></li>
+<li class="chapter" data-level="2.4.13" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-campaign"><i class="fa fa-check"></i><b>2.4.13</b> Variable campaign</a></li>
+<li class="chapter" data-level="2.4.14" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-pdays"><i class="fa fa-check"></i><b>2.4.14</b> Variable pdays</a></li>
+<li class="chapter" data-level="2.4.15" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-poutcome"><i class="fa fa-check"></i><b>2.4.15</b> Variable poutcome</a></li>
+<li class="chapter" data-level="2.4.16" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-previous"><i class="fa fa-check"></i><b>2.4.16</b> Variable previous</a></li>
+<li class="chapter" data-level="2.4.17" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#variable-term_deposit-objetivo"><i class="fa fa-check"></i><b>2.4.17</b> Variable term_deposit (Objetivo)</a></li>
+</ul></li>
+<li class="chapter" data-level="2.5" data-path="análisis-exploratorio-variables.html"><a href="análisis-exploratorio-variables.html#exploratorio-multivariante"><i class="fa fa-check"></i><b>2.5</b> Exploratorio multivariante</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="etl.html"><a href="etl.html"><i class="fa fa-check"></i><b>3</b> ETL</a><ul>
+<li class="chapter" data-level="3.1" data-path="etl.html"><a href="etl.html#tratamiento-de-datos-faltantes"><i class="fa fa-check"></i><b>3.1</b> Tratamiento de datos faltantes</a></li>
+<li class="chapter" data-level="3.2" data-path="etl.html"><a href="etl.html#transformación-de-variables"><i class="fa fa-check"></i><b>3.2</b> Transformación de variables</a><ul>
+<li class="chapter" data-level="3.2.1" data-path="etl.html"><a href="etl.html#train-poutcome"><i class="fa fa-check"></i><b>3.2.1</b> Train poutcome</a></li>
+<li class="chapter" data-level="3.2.2" data-path="etl.html"><a href="etl.html#variable-previous-1"><i class="fa fa-check"></i><b>3.2.2</b> Variable previous</a></li>
+<li class="chapter" data-level="3.2.3" data-path="etl.html"><a href="etl.html#variable-pdays-1"><i class="fa fa-check"></i><b>3.2.3</b> Variable pdays</a></li>
+<li class="chapter" data-level="3.2.4" data-path="etl.html"><a href="etl.html#variable-campaign-1"><i class="fa fa-check"></i><b>3.2.4</b> Variable campaign</a></li>
+<li class="chapter" data-level="3.2.5" data-path="etl.html"><a href="etl.html#variable-duration-1"><i class="fa fa-check"></i><b>3.2.5</b> Variable duration</a></li>
+<li class="chapter" data-level="3.2.6" data-path="etl.html"><a href="etl.html#variable-month"><i class="fa fa-check"></i><b>3.2.6</b> Variable month</a></li>
+<li class="chapter" data-level="3.2.7" data-path="etl.html"><a href="etl.html#variable-contact-1"><i class="fa fa-check"></i><b>3.2.7</b> Variable contact</a></li>
+<li class="chapter" data-level="3.2.8" data-path="etl.html"><a href="etl.html#variable-balance-1"><i class="fa fa-check"></i><b>3.2.8</b> Variable balance</a></li>
+<li class="chapter" data-level="3.2.9" data-path="etl.html"><a href="etl.html#variable-age-1"><i class="fa fa-check"></i><b>3.2.9</b> Variable age</a></li>
+</ul></li>
+<li class="chapter" data-level="3.3" data-path="etl.html"><a href="etl.html#selección-de-variables"><i class="fa fa-check"></i><b>3.3</b> Selección de variables</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="modelado.html"><a href="modelado.html"><i class="fa fa-check"></i><b>4</b> Modelado</a></li>
+<li class="chapter" data-level="5" data-path="evaluación.html"><a href="evaluación.html"><i class="fa fa-check"></i><b>5</b> Evaluación</a></li>
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Banco</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="evaluación" class="section level1">
+<h1><span class="header-section-number">5</span> Evaluación</h1>
+<p>Una vez entrenado el modelo vamos a evaluarlo con el conjunto de test. La métrica de evaluación utilizada tanto en esta fase como a la hora de elegir que transformación de variables aplicar es el <strong>F-score</strong>. Esta métrica es la media armónica de precisión y recall, es decir, se busca alcanzar un acuerdo entre ambas métricas. La precisión es el ratio de verdaderos positivos frente al total de positivos estimados por el modelo. Por lo que esta métrica busca que el modelo realice una estimación certera. En cuanto al recall es el ratio de positivos acertados frente al total de positivos existentes, es decir, es la proporción de positivos que el modelo es capaz de detectar. Por lo que el F-score busca cuantificar este equilibrio entre estimaciones certeras y casos detectados de positivos por nuestro modelo.</p>
+<p>Es razonable pensar que una métrica más fácil de entender como es el accuracy es mejor opción. Pero se ha tratado de evitar dicha métrica debido a la paradoja del accuracy. Este efecto se presenta en situaciones donde las clases no están balanceadas, como en nuestro caso, donde hay una proporcion aproximada de 10/90. Al estar la variable objetivo desbalanceada puede darse la situación de que el modelo tome el atajo estadístico de estimar todos los casos en negativo, con lo que obtendría un accuracy de 0.90, creando la falsa creencia de que es un buen modelo. En cambio, el F-score daría 0 ya que se detectarían 0 positivos del total existente en el conjunto.</p>
+<p>Lo primero es aplicar la ETL ya establecedia con train a este nuevo subconjunto.</p>
+<div class="sourceCode" id="cb472"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb472-1"><a href="evaluación.html#cb472-1"></a>test[test<span class="op">$</span>education<span class="op">==</span><span class="st">&#39;unknown&#39;</span>,<span class="st">&quot;education&quot;</span>] &lt;-<span class="st"> </span><span class="ot">NA</span></span>
+<span id="cb472-2"><a href="evaluación.html#cb472-2"></a>test[test<span class="op">$</span>job<span class="op">==</span><span class="st">&#39;unknown&#39;</span>,<span class="st">&quot;job&quot;</span>] &lt;-<span class="st"> </span><span class="ot">NA</span></span>
+<span id="cb472-3"><a href="evaluación.html#cb472-3"></a>test =<span class="st"> </span><span class="kw">missRanger</span>(test, <span class="dt">num.trees =</span> <span class="dv">100</span>)</span></code></pre></div>
+<pre><code>## 
+## Missing value imputation by random forests
+## 
+##   Variables to impute:       job, education
+##   Variables used to impute:  age, job, marital, education, default, balance, housing, loan, contact, day, month, duration, campaign, pdays, previous, poutcome, term_deposit
+## iter 1:  ..
+## iter 2:  ..
+## iter 3:  ..
+## iter 4:  ..</code></pre>
+<div class="sourceCode" id="cb474"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb474-1"><a href="evaluación.html#cb474-1"></a>test =<span class="st"> </span>test <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">mutate</span>(<span class="dt">campaign_binaria =</span> <span class="kw">cut</span>(campaign, <span class="dt">breaks =</span>  <span class="kw">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">300</span>), <span class="dt">right =</span> <span class="ot">FALSE</span>, <span class="dt">include.lowest =</span> <span class="ot">TRUE</span>, <span class="dt">labels =</span> <span class="kw">c</span>(<span class="st">&#39;1Contacto&#39;</span>, <span class="st">&#39;+1Contacto&#39;</span>)))</span>
+<span id="cb474-2"><a href="evaluación.html#cb474-2"></a>test<span class="op">$</span>campaign &lt;-<span class="st"> </span><span class="ot">NULL</span></span>
+<span id="cb474-3"><a href="evaluación.html#cb474-3"></a>test &lt;-<span class="st"> </span>test[test<span class="op">$</span>duration<span class="op">&gt;</span><span class="dv">0</span>,]</span>
+<span id="cb474-4"><a href="evaluación.html#cb474-4"></a>test<span class="op">$</span>duration &lt;-<span class="st"> </span><span class="kw">log10</span>(test<span class="op">$</span>duration)</span>
+<span id="cb474-5"><a href="evaluación.html#cb474-5"></a>test[test<span class="op">$</span>contact<span class="op">==</span><span class="st">&quot;unknown&quot;</span>,<span class="st">&quot;contact&quot;</span>] &lt;-<span class="st"> &quot;unknown&quot;</span></span>
+<span id="cb474-6"><a href="evaluación.html#cb474-6"></a>test[test<span class="op">$</span>contact<span class="op">!=</span><span class="st">&quot;unknown&quot;</span>,<span class="st">&quot;contact&quot;</span>] &lt;-<span class="st"> &quot;not_unknown&quot;</span></span>
+<span id="cb474-7"><a href="evaluación.html#cb474-7"></a>test =<span class="st"> </span>test <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">mutate</span>(<span class="dt">age_categorica =</span> <span class="kw">cut</span>(age, <span class="dt">breaks =</span> <span class="kw">c</span>(<span class="dv">0</span>, <span class="dv">29</span>, <span class="dv">44</span>, <span class="dv">59</span>, <span class="dv">100</span>), <span class="dt">right =</span> <span class="ot">TRUE</span>, <span class="dt">labels =</span> <span class="kw">c</span>(<span class="st">&#39;Joven&#39;</span>,<span class="st">&#39;MedianaEdad&#39;</span>,<span class="st">&#39;Mayores&#39;</span>,<span class="st">&#39;Ancianos&#39;</span>)))</span>
+<span id="cb474-8"><a href="evaluación.html#cb474-8"></a>test<span class="op">$</span>age &lt;-<span class="st"> </span><span class="ot">NULL</span></span>
+<span id="cb474-9"><a href="evaluación.html#cb474-9"></a>test<span class="op">$</span>term_deposit &lt;-<span class="st"> </span><span class="kw">as.factor</span>(test<span class="op">$</span>term_deposit)</span>
+<span id="cb474-10"><a href="evaluación.html#cb474-10"></a>test<span class="op">$</span>job &lt;-<span class="st"> </span><span class="kw">as.factor</span>(test<span class="op">$</span>job)</span>
+<span id="cb474-11"><a href="evaluación.html#cb474-11"></a>test<span class="op">$</span>education &lt;-<span class="st"> </span><span class="kw">as.factor</span>(test<span class="op">$</span>education)</span></code></pre></div>
+<div class="sourceCode" id="cb475"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb475-1"><a href="evaluación.html#cb475-1"></a>test &lt;-<span class="st"> </span>test[,<span class="kw">c</span>(<span class="st">&quot;job&quot;</span>,<span class="st">&quot;marital&quot;</span>,<span class="st">&quot;education&quot;</span>,<span class="st">&quot;balance&quot;</span>,<span class="st">&quot;housing&quot;</span>,<span class="st">&quot;loan&quot;</span>,<span class="st">&quot;contact&quot;</span>,<span class="st">&quot;day&quot;</span>,<span class="st">&quot;month&quot;</span>,<span class="st">&quot;duration&quot;</span>,<span class="st">&quot;pdays&quot;</span>,<span class="st">&quot;poutcome&quot;</span>,<span class="st">&quot;campaign_binaria&quot;</span> ,<span class="st">&quot;age_categorica&quot;</span>, <span class="st">&quot;term_deposit&quot;</span>)]</span></code></pre></div>
+<p>Obtenemos la matriz de confusión.</p>
+<div class="sourceCode" id="cb476"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb476-1"><a href="evaluación.html#cb476-1"></a>predicciones &lt;-<span class="st"> </span><span class="kw">predict</span>(model, test)</span>
+<span id="cb476-2"><a href="evaluación.html#cb476-2"></a><span class="kw">confusionMatrix</span>(predicciones, test<span class="op">$</span>term_deposit)<span class="op">$</span>table</span></code></pre></div>
+<pre><code>##           Reference
+## Prediction   no  yes
+##        no  7586  561
+##        yes  154  227</code></pre>
+<p>Calculamos la precisión en test:</p>
+<div class="sourceCode" id="cb478"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb478-1"><a href="evaluación.html#cb478-1"></a>cm &lt;-<span class="st"> </span><span class="kw">confusionMatrix</span>(predicciones, test<span class="op">$</span>term_deposit)<span class="op">$</span>table</span>
+<span id="cb478-2"><a href="evaluación.html#cb478-2"></a>cm[<span class="dv">1</span>,<span class="dv">1</span>]<span class="op">/</span><span class="kw">sum</span>(cm[<span class="dv">1</span>,<span class="dv">1</span><span class="op">:</span><span class="dv">2</span>])</span></code></pre></div>
+<pre><code>## [1] 0.9311403</code></pre>
+<p>Calculamos el recall en test:</p>
+<div class="sourceCode" id="cb480"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb480-1"><a href="evaluación.html#cb480-1"></a>cm[<span class="dv">1</span>,<span class="dv">1</span>]<span class="op">/</span><span class="kw">sum</span>(cm[<span class="dv">1</span><span class="op">:</span><span class="dv">2</span>,<span class="dv">1</span>])</span></code></pre></div>
+<pre><code>## [1] 0.9801034</code></pre>
+<p>Calculamos el F-Score en test:</p>
+<div class="sourceCode" id="cb482"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb482-1"><a href="evaluación.html#cb482-1"></a>prec &lt;-<span class="st"> </span>cm[<span class="dv">1</span>,<span class="dv">1</span>]<span class="op">/</span><span class="kw">sum</span>(cm[<span class="dv">1</span>,<span class="dv">1</span><span class="op">:</span><span class="dv">2</span>])</span>
+<span id="cb482-2"><a href="evaluación.html#cb482-2"></a>recall &lt;-<span class="st"> </span>cm[<span class="dv">1</span>,<span class="dv">1</span>]<span class="op">/</span><span class="kw">sum</span>(cm[<span class="dv">1</span><span class="op">:</span><span class="dv">2</span>,<span class="dv">1</span>])</span>
+<span id="cb482-3"><a href="evaluación.html#cb482-3"></a><span class="dv">2</span><span class="op">*</span>prec<span class="op">*</span>recall<span class="op">/</span>(prec<span class="op">+</span>recall)</span></code></pre></div>
+<pre><code>## [1] 0.9549946</code></pre>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="modelado.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+
+    </div>
+  </div>
+<script src="book_assets/gitbook-2.6.7/js/app.min.js"></script>
+<script src="book_assets/gitbook-2.6.7/js/lunr.js"></script>
+<script src="book_assets/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="book_assets/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="book_assets/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="book_assets/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="book_assets/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="book_assets/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="book_assets/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"linkedin": false,
+"weibo": false,
+"instapaper": false,
+"vk": false,
+"all": ["facebook", "twitter", "linkedin", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": null,
+"text": null
+},
+"history": {
+"link": null,
+"text": null
+},
+"view": {
+"link": null,
+"text": null
+},
+"download": null,
+"toc": {
+"collapse": "subsection"
+},
+"search": false
+});
+});
+</script>
+
+</body>
+
+</html>

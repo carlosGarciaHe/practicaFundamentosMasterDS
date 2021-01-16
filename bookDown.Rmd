@@ -1,0 +1,1643 @@
+---
+title: "Banco"
+author: "Carlos, Alberto y Juan Ramón"
+date: "23/11/2020"
+output:
+  bookdown::gitbook:
+    lib_dir: "book_assets"
+  bookdown::pdf_book:
+    keep_tex: yes
+---
+
+# Introducción y objetivos
+
+## Introducción
+
+Este documento es el informe de la práctica de Fundamentos de análisis de datos del Máster en Data Science de la URJC. El proyecto aquí presentado parte del [dataset](https://www.kaggle.com/kidoen/bank-customers-data) público en Kaggle. Dicho dataset contiene un conjunto de registros correspondientes a una campaña de marketing de un banco portugués. El objetivo de este dataset es el de si un cliente va a contratar o no un depósito.
+
+Al ser un problema de clasificación se ha optado por utilizar un modelo de regresión logística.
+
+El control de versiones y trabajo colaborativo se ha desarrollado es [este repositorio](https://github.com/carlosGarciaHe/practicaFundamentosMasterDS) de git.
+
+## Objetivos
+
+1) Creación de un modelo de regresión logística para predecir la probabilidad de contratación de un depósito
+
+2) Realizar una evaluación honesta del modelo, es decir, utilizar métricas de evaluación fiables y apartar un conjunto de test que no pueda verse afectado directa (utilizándolo para entrenamiento) o indirectamente (tomando decisiones en ETL o tuning con él).
+
+3) Aplicar alguna técnica de imputación de datos con los missing values.
+
+
+# ANÁLISIS EXPLORATORIO VARIABLES
+```{r setup, include=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(gmodels)
+library(Hmisc)
+library(moments)
+library(gridExtra)
+library(vcdExtra)
+library(Hmisc)
+library(mice)
+library(VIM)
+library(fastDummies)
+library(nortest)
+library(car)
+library(MASS)
+library(forecast)
+library(forcats)
+library(corrplot)
+library(missRanger)
+library(caret)
+library(MLmetrics)
+```
+
+En el EDA de este proyecto se ha procedido a analizar cada variable individualmente. Se ha observado cada una de las variables por si sola, que representan, su distribución, estadísticos básicos, missing values y capacidad predictora en un enfoque univariante para un modelo de regresión logística. Todo ello para entender cada una de las variables y el como procesarlas de la mejor forma posible de cara a utilizarlas en un modelo de aprendizaje automático. Por ello, también se ha adelantado en esta fase algunas posibles transformaciones que puedan ser de utilidad en la ETL.
+
+## Importación dataset
+
+Fijamos semilla para asegurar la replicación de los resultados de este proyecto.
+
+```{r}
+set.seed(42)
+```
+
+```{r}
+data = read_csv("BankCustomerdata.csv")
+```
+
+
+```{r}
+nrow(data)
+```
+
+## División en train y test
+
+Dividimos el dataset original en el conjunto de **train** y **test**. Test se ha apartado hasta evaluación, tomando las decisiones de la ETL solo con train para evitar cualquier tipo de sobreajuste indirecto sobre este subconjunto.
+
+```{r}
+n = nrow(data)
+trainIndex = sample(1:n, size = round(0.8*n), replace=FALSE)
+train = data[trainIndex ,]
+test = data[-trainIndex ,]
+```
+
+```{r}
+nrow(train)
+```
+```{r}
+nrow(test)
+```
+
+```{r, message=FALSE}
+ftable(train$term_deposit)
+```
+
+```{r, message=FALSE}
+ftable(test$term_deposit)
+```
+
+## Estructura y resumen de train
+
+Observamos su estructura y un resumen de las principales variables
+
+```{r}
+summary(train)
+describe(train)
+```
+
+## Exploratorio univariante de las variables predictoras
+
+### Variable age
+
+La variable age es una variable cuantitativa situada en la escala de proporción. Dicha variable indica la edad del cliente.
+
+```{r}
+describe(train$age)
+```
+
+Debes ser mayor de edad para contratar el depósito.
+La media de edad de nuestros individuos se encuentra en torno a los 41 años.
+
+```{r}
+ggplot(train, aes(x = age)) +
+  geom_histogram(aes(y = ..density..), fill="skyblue2", colour="white") +
+  ggtitle('Edad del cliente')
+
+ggplot(train,aes(x=age, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = 0) + facet_wrap(~term_deposit) + ggtitle("Edad del cliente")
+
+ggplot(train ,aes(x=age, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Edad del cliente")
+```
+
+Podemos observar como son los jóvenes y los mayores los que mayor probabilidad de contratar el depósito tienen.
+
+Se realiza un logit con la variable edad en forma continua para ver sus resultados.
+
+```{r}
+logit_edad = glm(as.factor(term_deposit) ~ age, family=(binomial(link=logit)), data = train)
+summary(logit_edad)
+```
+
+Se comprueba como la variable edad en forma continua no es tan significativa ya que el peso de los ancianos se contrarresta con el peso de los jóvenes. Por ello aumentar la variable edad en una unidad no tiene un efecto tan significativo en nuestra variable objetivo.
+
+Se puede apreciar gráficamente como los más jóvenes y los más mayores tienen mayor probabilidad de contratar el depósito. Queremos ver si estas particularidades tienen efecto que con en una variable continua se podrían obviar.
+
+Para ello convertimos nuestra variable continua en una variable categórica.
+
+```{r}
+train = train %>% mutate(age_categorica = cut(age, breaks = c(0, 29, 44, 59, 100), right = TRUE, labels = c('Joven','MedianaEdad','Mayores','Ancianos')))
+```
+
+```{r}
+ftable(train$age_categorica)
+describe(train$age_categorica)
+```
+
+```{r}
+train$age_categorica = factor(train$age_categorica, levels=(c('MedianaEdad', 'Joven','Mayores','Ancianos')))
+```
+
+
+```{r}
+levels(train$age_categorica)
+```
+
+```{r}
+with(train, CrossTable(age_categorica, term_deposit, format = 'SPSS'))
+```
+
+```{r}
+ggplot(train, aes(x = age_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Edad del cliente', y = 'prop') + ggtitle("Edad del cliente")
+```
+
+Se puede comprobar como las personas de mayor edad y los más jóvenes son los más propensos a contratar el depósito que las personas de mediana edad y que las personas mayores.
+
+Realizamos un logit con esta variable categórica donde la categoría de referencia se encuentra en mediana edad. Aquellas personas entre 30 y 44 años.
+
+```{r}
+logit_edadcat = glm(as.factor(term_deposit) ~ age_categorica, family=(binomial(link=logit)), data = train)
+summary(logit_edadcat)
+```
+
+Posteriormente en la selección de variables se realizará una modificación en las categorías de esta variable.
+
+### Variable balance
+
+La variable balance es una variable cuantitativa situada en la escala de intervalo. Dicha variable indica el saldo del cliente.
+
+
+```{r}
+describe(train$balance)
+```
+
+Variable tiene saldo negativo lo que podría limitar su transformación aunque existe otra variable en el modelo donde se indica si el cliente está o no en mora.
+
+La distribución de la variable cuenta con una larga cola que hace complicado estudiar la distribución más allá de los valores iniciales. 
+
+```{r}
+
+ggplot(train, aes(x = balance)) +
+  geom_histogram(fill="skyblue2", colour="white") + ggtitle('Saldo del cliente')
+
+ggplot(train, aes(x=balance, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = .5) + facet_wrap(~term_deposit) + ggtitle("Saldo del cliente")
+
+ggplot(train ,aes(x=balance, fill=term_deposit)) + geom_density(alpha = .3) + ggtitle("Saldo del cliente")
+
+```
+
+Se comprueba como no se puede apreciar correctamente las funciones de densidad condicionadas a contratar o no el depósito. Por ello, debemos pensar en transformar nuestra variable.
+
+Primero comprobamos como tener saldo negativo es distinto de estar en mora al menos con los datos que tenemos. Por ello, tendríamos que ir con más cuidado a la hora de realizar una transformación logaritmica de nuestra variable.
+
+```{r}
+balance_neg = train %>% filter(balance < 0)
+describe(balance_neg$balance)
+describe(balance_neg$default)
+```
+
+Las personas que tienen saldo negativo en nuestro data set son 2964 clientes.
+Aunque los clientes que tienen un crédito en mora tan solo son 354. Representa tan solo el 12% del total con saldo negativo.
+
+```{r}
+balance_cero = train %>% filter(balance == 0)
+describe(balance_cero$balance)
+describe(balance_cero$default)
+```
+ 
+Se comprueba como aquellos que tienen saldo 0 son 2716 clientes sumándoles aquellos con saldo negativo suponen 5680 observaciones mientras que las personas con mora pertenecientes a esos grupo únicamente suman 448 observaciones.
+
+Por tanto, la variable default no podría explicar aquellas observaciones perdidas al realizar el logaritmo.
+```{r}
+balance_pos = train %>% filter(balance > 0)
+describe(balance_pos$balance)
+
+train = train %>% mutate(log_balance = log10(balance))
+
+describe(train$log_balance)
+```
+
+Se transforma la variable mediante el logaritmo para suavizar el crecimiento al principio y acrecentarlo al final.
+
+Al realizar esta transformación se producen valores NaNs. En la variable balance existen 5680 valores en los cuales el cliente no tiene saldo o su saldo es negativo. 
+
+```{r}
+ggplot(train, aes(x = log_balance)) +
+  geom_histogram(fill="skyblue2", colour="white") + ggtitle('Log saldo del cliente')
+
+ggplot(train, aes(x=log_balance, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = .5) + facet_wrap(~term_deposit) + ggtitle("Log saldo del cliente")
+
+ggplot(train ,aes(log_balance, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Log saldo del cliente")
+```
+
+Con esta visualización únicamente podemos intuir que aquellas personas con mayor saldo en cuenta tienen mayor probabilidad de contratar un depósito.
+
+Por ello, otra opción que se podría realizar en vez de realizar el logaritmo y perder información se podría categorizar la variable respecto al saldo en cuenta.
+
+```{r}
+bal = train %>% filter(balance > 0)
+describe(bal$balance)
+sd(bal$balance)
+IQR(bal$balance)
+```
+
+Se dividiría la variable en cuatro categorías.
+
+Saldos negativos. Siendo la cantidad inferior a 0.
+
+Saldos bajos. De acuerdo a nuestros datos, la media de saldos positivos se encuentra en torno a 1500 euros. Aunque está sesgada debido a la gran cantidad de saldos altos y a una gran dispersión en nuestros datos. Por ello, se aumenta el límite de esta franja hasta los 2000€. La mediana de los datos se encuentra en torno a 635 y el IQR en torno a 1500. 
+
+Saldos medios. Se encuentra cercanos desde la media hasta los 10000 euros. 
+
+Saldos altos. A partir de dicha cantidad teniendo en cuenta la distribución de nuestros datos.
+
+
+```{r}
+train = train %>% mutate(balance_categorica = cut(balance, breaks = c(-10000, 0, 2000, 10000, 105000), right = FALSE, labels = c('Negativo','Bajo','Medio', 'Alto')))
+```
+
+```{r}
+ftable(train$balance_categorica)
+describe(train$balance_categorica)
+```
+
+```{r}
+with(train, CrossTable(balance_categorica, term_deposit, format = 'SPSS'))
+```
+
+Al establecer las categorías en base a nuestros datos de entrenamiento se podría caer también en overfitting.
+
+```{r}
+ggplot(train, aes(x = balance_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Saldo en cuenta cliente', y = 'prop') + ggtitle("Saldos del cliente")
+```
+
+Se aprecia como a medida que crecen los saldos, la probabilidad de contratar un depósito aumenta.
+
+
+### Variable job
+
+Variable categórica en escala nominal que muestra el tipo de puesto laboral (management, technician, entrepeneur, administrative, blue-collar, services, retired, unknown)
+
+```{r}
+train$job= factor(train$job)
+levels(train$job)
+
+```
+
+Mostramos la tabla de frecuencias absolutas y relativas:
+
+```{r, message=FALSE}
+ftable(train$job)
+```
+
+```{r, message=FALSE}
+prop.table(ftable(train$job))
+```
+
+La categoría más frecuente es la de **unemployed**, seguido de **blue-collar** y **management**.
+
+```{r, message=FALSE}
+ggplot(train, aes(job)) + geom_bar(aes(y = ..prop.., group = 1),position='dodge', fill = 'skyblue2') + coord_flip() + ggtitle("Profesión del cliente")
+```
+
+La cruzamos con la variable objetivo:
+
+```{r, message=FALSE}
+with(train, CrossTable(job, term_deposit, format = 'SPSS'))
+```
+
+Con la tabla de frecuencias se observa que el porcentaje de contratación del depósito varía según nivel de empleo.
+
+```{r, message=FALSE}
+ggplot(train, aes(x = job, fill = term_deposit)) + geom_bar(position = 'dodge') + coord_flip() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según profesión del cliente")
+ggplot(train, aes(x = job, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 ),position = 'dodge') + coord_flip() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según profesión del cliente")
+
+ggplot(train, aes(x = job, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'tipo de puesto laboral', y = 'prop') + ggtitle("Contratación de depósito según profesión del cliente")
+```
+
+Estudiante es el estado profesional más propenso a contratar el producto, seguido de jubilado. Pero todas las profesiones parecen ser buenos discriminadores de la probabilidad de contratación. Por lo que esta variable parece que pueda ser una buena variable predictora.
+
+Hallamos la regresión logística múltiple en función de la variable job mediante las categorías dumificadas. Calculamos los parámetros de la regresión logística múltiple
+```{r}
+train$job[train$job == "blue-collar"] <-"blue_collar"
+train$job[train$job == "self-employed"] <-"self_employed"
+
+train <- dummy_cols (train, select_columns = c("job"))
+modelo.log.m.job <- glm(as.factor(term_deposit) ~ job, family = binomial, data = train )
+summary(modelo.log.m.job)
+```
+
+
+Obtenemos los intervaleos de confianza de los coeficientes parciales de correlación del modelo. Los intervalos que contengan el 0 indican que la variable dummy a la que están asociados no es significativa en el modelo.
+
+```{r}
+confint(object = modelo.log.m.job , level=0.95)
+```
+
+Los predictores estadísticamente significativos de la regresión son el intercept y las variables job_student y job_retired con pvalores menores que el nivel de significación impuesto (alfa = 0.05).
+
+Los coeficientes positivos indican que aumenta la probabilidad de contrato del depósito para la categoría asociada y los negativos la decrementan. Los estudiantes tienen asociado un coeficiente positivo (1.027) y los retirados 0.702. A mayor valor del coeficiente, mayor probabilidad de contratación.
+
+### Variable marital
+
+Variable categórica en escala nominal, muestra el estado civil (married, single, divorced).
+
+```{r}
+train$marital = factor (train$marital)
+levels(train$marital)
+reorder_marital = factor(train$marital, levels = (c('single','married','divorce')))
+levels(reorder_marital)
+```
+Mostramos la tabla de frecuencias absolutas y relativas:
+
+```{r, message=FALSE}
+ftable(train$marital)
+```
+
+```{r, message=FALSE}
+prop.table(ftable(train$marital))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(marital)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Estado civil del cliente")
+```
+
+El estado civil más numeroso es casado.
+
+La cruzamos con la variable objetivo:
+
+```{r, message=FALSE}
+with(train, CrossTable(marital, term_deposit, format = 'SPSS'))
+```
+En la tabla de frecuencias se observa que el porcentaje de contratación varía según el estado civil del cliente. Por este motivo, parece interesante dumificar la variable y hallar la regresión logística para ver si la diferencia entre las categorías es significativa.
+
+```{r, message=FALSE}
+ggplot(train, aes(x = marital, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según estado civil del cliente")
+ggplot(train, aes(x = marital, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Frecuencia de contratación de depósito según estado civil del cliente")
+ggplot(train, aes(x = marital, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'tipo de puesto laboral', y = 'prop') + ggtitle("Contratación por estado civil del cliente")
+```
+
+Soltero es el estado civil más propenso a contratar el producto, seguido muy de cerca de los divorciados y bastante alejado se encuentra el grupo de casados. Sin duda esta variable es informativa para un futuro modelo.
+
+Hallamos la regresión logística múltiple en función de la variable marital mediante sus categorías dumificadas. Calculamos los parámetros de la regresión logística múltiple.
+```{r}
+
+train <- dummy_cols (train, select_columns = c("marital"))
+modelo.log.m.marital <- glm(as.factor(term_deposit) ~ marital, family = binomial, data = train )
+summary(modelo.log.m.marital)
+```
+
+Obtenemos los intervalos de confianza de los coeficientes parciales de correlación del modelo. Los intervalos que contengan el 0 indican que la variable dummy a la que están asociados no es significativa en el modelo. 
+
+```{r}
+confint(object = modelo.log.m.marital , level=0.95)
+```
+Los predictores estadísticamente significativos de la regresión son el intercept y las variables marital_married y marital_single con pvalores menores que el nivel de significación impuesto (alfa = 0.05).
+
+Los coeficientes positivos indican que aumenta la probabilidad de contrato del depósito para la categoría asociada y los negativos la decrementan.
+
+Los casados tienen asociado un coeficiente negativo (-0.21937) y los retirados un coeficiente positivo (0.21013). A mayor valor del coeficiente, mayor probabilidad de contratación. La diferencia de la probabilidad de contratación entre los distintos niveles categóricos es significativa, aumentando esta para los solteros y disminuyendo para los casados.
+
+### Variable education
+
+Variable categórica en escala nominal que informa del nivel educativo del cliente, muestra el nivel de educación (primary, secondary, tertiary, unknown).
+
+```{r}
+train$education = factor(train$education)
+levels(train$education)
+
+```
+
+Mostramos la tabla de frecuencias absolutas y relativas:
+
+```{r, message=FALSE}
+ftable(train$education)
+```
+
+```{r, message=FALSE}
+prop.table(ftable(train$education))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(education)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Nivel educativo del cliente")
+```
+
+Secondary es el nivel educativo más común seguido de lejos por tertiary y primary. Existe un pequeño porcentaje de clientes que no ha contestado la pregunta.
+
+La cruzamos con la variable objetivo:
+
+```{r, message=FALSE}
+with(train, CrossTable(education, term_deposit, format = 'SPSS'))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(x = education, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según el nivel educativo del cliente")
+ggplot(train, aes(x = education, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Frecuencia de nivel educativo del cliente por contratación")
+ggplot(train, aes(x = education, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Nivel de educación', y = 'prop') + ggtitle("Contratación por nivel de estudios.")
+```
+
+
+Con el análisis gráfico se observa una ligera diferencia de contratación del depósito en función del nivel educativo. El grupo más propenso a contratar el producto es **secondary**. Pero no hay diferencias tan notables como en otras variables categóricas como job o marital.
+
+El grupo que no ha respondido a esta variable se asemeja a secondary en cuanto a densidad de contrataciones se refiere. Este hecho es recomendable tenerlo en cuenta a la hora de tratar los valores perdidos.
+
+Hallamos la regresión logística múltiple en función de la variable education mediante las categorías dumificadas. Calculamos los parámetros de la regresión logística múltiple en función de los niveles educativos, excluyendo la categoría unknown porque entendemos que en este grupo se acumulan datos de las tres categorías disminuyendo la explicabilidad del modelo si está en función de esta variable dummy.
+
+```{r}
+
+train <- dummy_cols (train, select_columns = c("education"))
+modelo.log.m.education <- glm(as.factor(term_deposit) ~ education_primary + education_secondary + education_tertiary, family = binomial, data = train )
+summary(modelo.log.m.education)
+```
+
+Obtenemos los intervaleos de confianza de los coeficientes parciales de correlación del modelo. Los intervalos que contengan el 0 indican que la variable dummy a la que están asociados no es significativa en el modelo
+
+```{r}
+confint(object = modelo.log.m.education , level=0.95)
+```
+
+Los predictores estadísticamente significativos de la regresión son el intercept y las variables education_primary y education_tertiary con pvalores menores que el nivel de significación impuesto (alfa = 0.05).
+
+Los coeficientes positivos indican que aumenta la probabilidad de contrato del depósito para la categoría asociada y los negativos la decrementan.
+
+A niveles altos de educación, mayor es la probabilidad de contratación. A niveles bajos de educación, la probabilidad de contratación es menor. A niveles intermedios de educación no podemos afirmar nada con el modelo logístico calculado.
+
+### Variable default
+
+Variable categórica en escala binaria. Indica si un cliente tiene mora o no.
+
+```{r}
+train$default = factor (train$default)
+levels(train$default)
+reorder_default = factor(train$default, levels = (c('no','yes')))
+levels(reorder_default)
+```
+
+Mostramos la tabla de frecuencias absolutas y relativas:
+
+```{r, message=FALSE}
+ftable(train$default)
+```
+
+```{r, message=FALSE}
+prop.table(ftable(train$default))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(default)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Default del cliente")
+```
+
+Sin duda el grupo más numeroso con gran diferencia es el de aquellos sin deudas.
+
+La cruzamos con la variable objetivo:
+
+```{r, message=FALSE}
+with(train, CrossTable(default, term_deposit, format = 'SPSS'))
+```
+
+```{r, message=FALSE}
+ggplot(train, aes(x = default, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según si el cliente tiene mora")
+ggplot(train, aes(x = default, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Frecuencia de contratación de depósito según si el cliente tiene mora")
+ggplot(train, aes(x = default, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Default', y = 'prop') + ggtitle("Contratación por morosidad.")
+```
+
+Como era de esperar, aquellos con deudas pendientes son menos propensos a contratar el producto, por lo que esta variable parece ser una buena canditrain a ser variable predictora.
+
+Hallamos la regresión logística múltiple en función de la variable default mediante las categorías dumificadas. Calculamos los parámetros de la regresión logística múltiple, para observar las diferencias en probabilidad para cada variable categórica.
+
+```{r}
+
+train <- dummy_cols (train, select_columns = c("default"))
+modelo.log.m.default <- glm(as.factor(term_deposit) ~ default, family = binomial, data = train )
+summary(modelo.log.m.default)
+```
+
+Obtenemos los intervalos de confianza de los coeficientes parciales de correlación del modelo. Los intervalos que contengan el 0 indican que la variable dummy a la que están asociados no es significativa en el modelo.
+
+```{r}
+confint(object = modelo.log.m.default, level=0.95)
+```
+
+Los predictores estadísticamente significativos de la regresión son el intercept y las variables dumis default con pvalores menores que el nivel de significación impuesto (alfa = 0.05).
+
+Los coeficientes positivos indican que aumenta la probabilidad de contrato del depósito para la categoría asociada y los negativos la decrementan. Como el coeficiente asociado a la variable default_yes es negativo, si el cliente es moroso, tiene menos probabilidad de contratación del depósito.
+
+### Variable housing
+La variable housing es una variable dicotomica que muestra si tiene un préstamo hipotecario.
+
+```{r}
+train$housing = factor (train$housing)
+levels(train$housing)
+reorder_housing = factor(train$housing, levels = (c('no','yes')))
+levels(reorder_housing)
+```
+
+Tabla de frecuencias absolutas y relativas:
+```{r}
+table(train$housing)
+prop.table(table(train$housing))
+```
+
+De manera gráfica:
+```{r}
+ggplot(train, aes(housing)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Tenencia de préstamo hipotecario")
+```
+
+Se encuentran balanceado los datos y con mayor proporción en tener un préstamo hipotecario
+
+  
+Si evaluamos la variable housing respecto a nuestra variable objetivo (term_deposit)
+
+```{r}
+with(train, CrossTable(housing, term_deposit, format = 'SPSS'))
+```
+En la tabla de frecuencias se observa que los clientes que no tienen hipoteca tienen más probabilidad de contratar el depósito, frente a los que la tienen.
+  
+Gráficamente:
+```{r}
+ggplot(train, aes(x = housing, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según tenencia de hipoteca")
+ggplot(train, aes(x = housing, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según tenencia de hipoteca")
+ggplot(train, aes(x = housing, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Housing', y = 'prop') + ggtitle("Contratación por tenencia de hipoteca")
+```
+  
+Se comprueba que en términos relativos aquellos que contratan el depósito tienen mayor proporción de individuos que no cuenta con préstamo hipotecario. Al contrario ocurre con los que no contratan el depósito siendo en mayor proporción aquellos que sí tiene una hipoteca.
+
+Hallamos la regresión logística múltiple en función de la variable Housing mediante las categorías dumificadas. Calculamos los parámetros de la regresión logística múltiple para observar si es significativa la tenencia de una hipoteca para la contratación del depósito.
+```{r}
+
+train <- dummy_cols (train, select_columns = c("housing"))
+modelo.log.m.housing <- glm(as.factor(term_deposit) ~ housing, family = binomial, data = train )
+summary(modelo.log.m.housing)
+```
+
+Obtenemos los intervalos de confianza de los coeficientes parciales de correlación del modelo. Los intervalos que contengan el 0 indican que la variable dummy a la que están asociados no es significativa en el modelo.
+
+```{r}
+confint(object = modelo.log.m.housing, level=0.95)
+```
+
+Los predictores estadísticamente significativos de la regresión son el intercept y las variables dumis housing con pvalores menores que el nivel de significación impuesto (alfa = 0.05).
+
+Los coeficientes positivos indican que aumenta la probabilidad de contrato del depósito para la categoría asociada y los negativos la decrementan. Como el coeficiente asociado a la variable housing_yes es negativo, si el cliente tiene hipoteca, tiene menos probabilidad de contratación.
+
+### Variable loan
+
+La variable loan es una variable dicotómica que muestra si el cliente tiene un préstamo personal.  
+
+```{r}
+train$loan = factor (train$loan)
+levels(train$loan)
+```
+
+Al ser una variable categórica realizamos una tabla de frecuencias absoluta y de frecuencias relativa para ver su composición de forma univariante.
+```{r}
+table(train$loan)
+prop.table(table(train$loan))
+```
+
+De manera gráfica
+```{r}
+ggplot(train, aes(loan)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Tenencia de préstamo personal")
+```
+  
+    
+La gran parte de los clientes no tienen un préstamo personal.  
+
+
+Si evaluamos la variable loan respecto a nuestra variable objetivo (term_deposit)  
+
+```{r}
+with(train, CrossTable(loan, term_deposit, format = 'SPSS'))
+
+```
+
+Gráficamente:
+```{r}
+ggplot(train, aes(x = loan, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según tenencia de préstamo")
+ggplot(train, aes(x = loan, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según tenencia de préstamo")
+ggplot(train, aes(x = loan, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Loan', y = 'prop') + ggtitle("Contratación por tenencia de préstamo personal")
+```
+  
+  
+Se comprueba que en términos relativos aquellos que contratan el depósito tienen una proporción parecida a las que no lo contratan en cuanto a la tenencia de préstamo personal. Aunque son aquellos que no contratan el préstamo los que tienen mayor proporción de tener un préstamo personal.
+
+
+Hallamos la regresión logística múltiple en función de la variable loan mediante las categorías dumificadas. Calculamos los parámetros de la regresión logística múltiple
+```{r}
+
+train <- dummy_cols (train, select_columns = c("loan"))
+modelo.log.m.loan<- glm(as.factor(term_deposit) ~ loan, family = binomial, data = train )
+summary(modelo.log.m.loan)
+```
+
+Obtenemos los intervalos de confianza de los coeficientes parciales de correlación del modelo. Los intervalos que contengan el 0 indican que la variable dummy a la que están asociados no es significativa en el modelo. 
+```{r}
+confint(object = modelo.log.m.loan, level=0.95)
+```
+
+Los predictores estadísticamente significativos de la regresión son el intercept y las variables dumis loan con pvalores menores que el nivel de significación impuesto (alfa = 0.05).
+
+Los coeficientes positivos indican que aumenta la probabilidad de contrato del depósito para la categoría asociada y los negativos la decrementan. Como el coeficiente asociado a la variable loan_yes es negativo, si el cliente tiene préstamo personal, tiene menos probabilidad de contratación.
+
+
+### Variable contact
+La variable contact es una variable categórica en escala nominal que indica la forma en la que se contactó con el cliente. (A través de teléfono móvil, fijo, desconocido)
+
+```{r}
+train$contact = factor (train$contact)
+levels(train$contact)
+```
+
+Al ser una variable categórica también realizamos una tabla de frecuencias absoluta y de frecuencias relativa para ver su composición de forma univariante.
+
+```{r}
+ftable(train$contact)
+prop.table(ftable(train$contact))
+```
+Muestra que un gran porcentaje de los clientes fueron contactados a través del teléfono móvil.  
+
+Gráficamente:
+```{r}
+ggplot(train, aes(contact)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Forma de contacto con la persona")
+```
+
+Si evaluamos la variable contact respecto a nuestra variable objetivo (term_deposit)
+```{r}
+with(train, CrossTable(contact, term_deposit, format = 'SPSS'))
+```
+Gráficamente:
+```{r}
+ggplot(train, aes(x = contact, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según forma de contacto")
+ggplot(train, aes(x = contact, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según forma de contacto")
+ggplot(train, aes(x = contact, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Contact', y = 'prop') + ggtitle("Contratación por tipo de toma de contacto ")
+```
+  
+  
+Observamos que la gran mayoría de las personas que contrataron el depósito fueron contactadas a través del teléfono móvil.
+
+La categoría **unknown** no parece mostrar que sea MCAR ya que la probabilidad de contratar parece decrecer enormemente si aparece este valor. Al contrario que para **cellular** o **telephone** donde la diferencia entre ambas es mucho más pequeña.
+
+Por ello es razonable pensar que es útil mantener esta categoría ya que puede aportar valor informativo.
+
+Hallamos la regresión logística múltiple en función de la variable contact mediante las categorías dumificadas. Calculamos los parámetros de la regresión logística múltiple
+```{r}
+
+train <- dummy_cols (train, select_columns = c("contact"))
+modelo.log.m.contact<- glm(as.factor(term_deposit) ~ contact, family = binomial, data = train )
+summary(modelo.log.m.contact)
+```
+
+Los predictores estadísticamente significativos de la regresión son el intercept y las variables dumis loan con pvalores menores que el nivel de significación impuesto (alfa = 0.05). En este caso solo **unknown**.
+
+Obtenemos los intervalos de confianza de los coeficientes parciales de correlación del modelo. Los intervalos que contengan el 0 indican que la variable dummy a la que están asociados no es significativa en el modelo. 
+```{r}
+confint(object = modelo.log.m.contact, level=0.95)
+```
+
+Los coeficientes positivos indican que aumenta la probabilidad de contrato del depósito para la categoría asociada y los negativos la decrementan. Como el coeficiente asociado a la variable loan_yes es negativo, si el cliente tiene préstamo personal, tiene menos probabilidad de contratación.
+
+### Variable mes
+La variable mes es una variable categórica que indica en qué mes se produjo el último contacto con el cliente.  
+
+Reasignamos los valores de la variable para que aparezcan en orden.
+
+```{r}
+meses = factor(train$month, levels = (c("jan", "feb", "mar", "apr", "may", "jun",
+                                        "jul", "aug", "sep", "oct", "nov", "dec")))
+```
+
+
+```{r}
+train_tmp = train
+train_tmp$month = factor (train_tmp$month)
+levels(train_tmp$month)
+```
+
+Al ser una variable categórica también realizamos una tabla de frecuencias absoluta y de frecuencias relativa para ver su composición de forma univariante.
+
+```{r}
+ftable(train_tmp$month)
+prop.table(ftable(train_tmp$month))
+```
+
+Gráficamente:
+```{r}
+ggplot(train_tmp, aes(month)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Mes")
+```
+
+Si evaluamos la variable month respecto a nuestra variable objetivo (term_deposit)
+```{r}
+with(train_tmp, CrossTable(month, term_deposit, format = 'SPSS'))
+```
+
+Gráficamente:
+```{r}
+ggplot(train_tmp, aes(x = month, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según mes")
+ggplot(train_tmp, aes(x = month, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación de depósito según mes")
+ggplot(train_tmp, aes(x = month, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Contact', y = 'prop') + ggtitle("Contratación por mes")
+```
+
+Podemos ver que hay meses en los que se producen más contrataciones que en otros.
+
+Hallamos la regresión logística múltiple en función de la variable contact mediante las categorías dumificadas. Calculamos los parámetros de la regresión logística múltiple
+```{r}
+
+train_tmp <- dummy_cols (train_tmp, select_columns = c("month"))
+modelo.log.m.month<- glm(as.factor(term_deposit) ~ month, family = binomial, data = train_tmp )
+summary(modelo.log.m.month)
+```
+
+Los predictores estadísticamente significativos de la regresión son el intercept y las variables dumis loan con pvalores menores que el nivel de significación impuesto (alfa = 0.05).
+
+Obtenemos los intervalos de confianza de los coeficientes parciales de correlación del modelo. Los intervalos que contengan el 0 indican que la variable dummy a la que están asociados no es significativa en el modelo. 
+```{r}
+confint(object = modelo.log.m.month, level=0.95)
+```
+
+Los coeficientes positivos indican que aumenta la probabilidad de contrato del depósito para la categoría asociada y los negativos la decrementan. Como el coeficiente asociado a la variable loan_yes es negativo, si el cliente tiene préstamo personal, tiene menos probabilidad de contratación.
+
+### Variable day
+  
+```{r}
+describe(train$day)
+```
+
+```{r}
+ggplot(train, aes(x = day)) +
+  geom_histogram(aes(y = ..density..), fill="skyblue2", colour="white") +
+  ggtitle('Día del mes')
+
+ggplot(train,aes(x=day, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = 0) + facet_wrap(~term_deposit) + ggtitle("Día del mes")
+
+ggplot(train ,aes(x=day, fill=term_deposit)) + geom_density(alpha = .3) + ggtitle("Día del mes")
+
+```
+ 
+No se aprecia un patrón claro, salvo distintos picos que nos permite dividir la variable en tres partes. 
+
+La variable de forma continua no tiene interpretación clara. Por este motivo, se transforma la variable para ver si se encuentra alguna característica relevante en ella.
+
+```{r}
+train = train %>% mutate(day_categorica = cut(day, breaks = c(0, 10, 20, 31), labels = c('InicioMes','MedioMes','FinalMes')))
+```
+
+```{r}
+ftable(train$day_categorica)
+describe(train$day_categorica)
+```
+
+```{r}
+with(train, CrossTable(day_categorica, term_deposit, format = 'SPSS'))
+```
+
+```{r}
+ggplot(train, aes(x = day_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Día de contacto', y = 'prop') + ggtitle("Día de contacto")
+```
+ 
+Como podemos observar no existe un patrón claro a la hora de encontrar diferencias significativas en la probabilidad de contratar un depósito dependiendo del día del mes en el que se contactó con el cliente.
+
+Únicamente existe una mayor probabilidad a la hora de contratar un depósito a principio de mes, pero sin diferencias significativas.
+  
+
+### Variable duration
+Es una variable cuantitativa que muestra la duración en segundos del último contacto mantenido con el cliente. 
+```{r}
+describe(train$duration)
+```
+
+Variable complicada ya que puede estar muy correlacionada con la variable dependiente.
+
+```{r}
+ggplot(train, aes(x = duration)) +
+  geom_histogram(fill="skyblue2", colour="white") + ggtitle('Duracion contacto con el cliente')
+
+ggplot(train, aes(x=duration, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = .5) + facet_wrap(~term_deposit) + ggtitle("Duracion contacto con el cliente")
+
+ggplot(train ,aes(x=duration, fill=term_deposit)) + geom_density(alpha = .3) + ggtitle("Duracion contacto con el cliente")
+```
+
+Se comprueba como el estar mayor tiempo de contacto con el cliente afecta positivamente a la probabilidad de contratar el depósito.
+
+Se estudia las posibles transformaciones de la variable duration.
+
+```{r}
+symbox(~duration, data = train)
+
+```
+
+ 
+
+Se transforma la variable mediante el logaritmo para suavizar el crecimiento al principio y acrecentarlo al final.
+
+```{r}
+duration_cero = train %>% filter(duration == 0)
+describe(duration_cero$duration)
+
+
+train = train %>% mutate(log_duration = log10(duration))
+
+describe(train$log_duration)
+
+```
+
+Al aplicar logaritmo existen tres valores iguales a 0 que se deberían eliminar.
+
+```{r}
+ggplot(train, aes(x = log_duration)) +
+  geom_histogram(fill="skyblue2", colour="white") + ggtitle('Log duracion contacto con el cliente')
+
+ggplot(train, aes(x=log_duration, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = .5) + facet_wrap(~term_deposit) + ggtitle("Log duracion contacto con el cliente")
+
+ggplot(train ,aes(log_duration, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Log duracion contacto con el cliente")
+
+```
+
+Se aprecia como aquellas personas con mayor duración del contacto son las que tienen mayor probabilidad de contratar el depósito. Aunque es una variable muy correlacionada con la variable objetivo.
+
+
+### Variable campaign
+
+Es una variable cuantitativa que muestra el número de contactos en esta campaña hacia un cliente.
+```{r}
+describe(train$campaign)
+```
+
+Se aprecia como la mediana, es decir el 50% de la población recibió dos contactos o menos. Así como solo un 10% de la población recibió más de 5 contactos.
+
+```{r}
+ggplot(train, aes(x = campaign)) +
+  geom_histogram(aes(y = ..density..), fill="skyblue2", colour="white") +
+  ggtitle('Nº de contactos con el cliente actual campaña')
+
+ggplot(train,aes(x=campaign, fill = term_deposit)) + geom_histogram() + facet_wrap(~term_deposit) + ggtitle("Nº de contactos con el cliente actual campaña")
+
+ggplot(train,aes(x=campaign, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + facet_wrap(~term_deposit) + ggtitle("Nº de contactos con el cliente actual campaña")
+
+```
+
+
+Se aprecia como aquellas personas con la que menos se ha contactado son las que más probabilidades tienen de contratar un depósito.
+
+```{r}
+with(train, CrossTable(campaign, term_deposit, format = 'SPSS'))
+
+```
+
+Se realiza una tabla cruzada con la variable objetivo para ver ver más detalladamente la composición de la variable. 
+
+```{r}
+ggplot(train, aes(x = campaign, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Nº de contactos con el cliente', y = 'prop') + ggtitle("Nº de contactos con el cliente")
+```
+
+
+Se comprueba como contactar solo una vez con el cliente tiene mayor probabilidad de contratar el depósito y esta va decreciendo conforme aumenta en una unidad el número de contactos con el cliente. 
+
+Posibles transformaciones. 
+Yo dejaría la variable tal y como está dado que un aumento en el número de contactos reduce la probabilidad de contratar el depósito. Aunque tendría en cuenta los outliers y los trataría.
+
+Se realiza un logit con la variable objetivo para ver sus resultados.
+
+```{r}
+logit = glm(as.factor(term_deposit) ~ campaign, family=(binomial(link=logit)), data = train)
+summary(logit)
+```
+ 
+Tendríamos que sacar el efecto marginal para ver cuanto se reduce realmente la probabilidad de contratar el depósito. Aunque se puede ver que tiene efecto negativo y es significativa dicha variable
+
+```{r}
+ logitvec = mean(dlogis(predict(logit, type = "link")))
+ logitvec * coef(logit)
+```
+
+El efecto provoca que un aumento del contacto con el cliente en una unidad provoca que la probabilidad de contratar el depósito se reduzca en 0.0093.
+
+Otras opciones sería realizar una variable categórica binaria a tal efecto. 
+Dividiéndose en haber tenido un contacto o más de un contacto lo cual reduce la probabilidad de contratar un depósito.
+
+```{r}
+train = train %>% mutate(campaign_binaria = cut(campaign, breaks =  c(1, 2, 300), right = FALSE, include.lowest = TRUE, labels = c('1Contacto', '+1Contacto')))
+```
+
+
+```{r}
+ftable(train$campaign_binaria)
+```
+
+```{r}
+describe(train$campaign_binaria)
+with(train, CrossTable(campaign_binaria, term_deposit, format = 'SPSS'))
+```
+
+
+```{r}
+ggplot(train, aes(x = campaign_binaria, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Nº de contactos con el cliente', y = 'prop') + ggtitle("Nº de contactos con el cliente")
+```
+
+Se aprecia como tener un solo contacto con el cliente aumenta su probabilidad de contratar al depósito al contrario ocurre cuando contactas con el cliente más de una vez.
+
+```{r}
+train$campaign_binaria = factor(train$campaign_binaria, levels=(c('+1Contacto', '1Contacto')))
+```
+
+```{r}
+levels(train$campaign_binaria)
+```
+ 
+Estamos metiendo como variable de referencia a la variable que cuenta con mayor número de observaciones.
+
+```{r}
+logit_uno = glm(as.factor(term_deposit) ~ campaign_binaria, family=(binomial(link=logit)), data = train)
+summary(logit_uno)
+```
+
+Tener solo un contacto aumenta la probabilidad de contratar el depósito.
+
+### Variable pdays
+  
+La variable pdays es una variable cuantitativa que muestra los días que han pasado desde que se contactó con él en la anterior campaña.
+
+```{r}
+describe(train$pdays)
+```
+
+Existen clientes con los que no se ha contactado en la campaña anterior.
+En su gran mayoría no se ha contactado anteriormente con este cliente indicándose en la base de datos con valor -1.
+
+```{r}
+ggplot(train, aes(x = pdays)) +
+  geom_histogram(fill="skyblue2", colour="white") +
+  ggtitle('Número dias desde último contacto en campañas anteriores')
+
+ggplot(train,aes(x=pdays, fill=term_deposit)) + geom_histogram() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Número días desde último contacto en campañas anteriores")
+
+ggplot(train,aes(x=pdays, fill=term_deposit)) + geom_histogram(aes(y = ..density..)) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Número días desde último contacto en campañas anteriores")
+```
+ 
+No se pueden apreciar ninguna característica adiccional en esta variable dado el gran peso que tiene no haber contactado anteriormente con el cliente en nuestra base de datos.
+
+Para poder encontrar algún patrón que influya en la variable objetivo debemos mirar con mayor precisión. Por ello, evaluamos el 25% de los datos restantes para poder extraer una conclusión en base al número de días que pasaron desde que se contactó en la anterior campaña.
+
+```{r}
+pdays_pos = train %>% filter(pdays != -1)
+describe(pdays_pos$pdays)
+
+ggplot(pdays_pos, aes(x = pdays, colour = term_deposit)) +
+  geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
+  ggtitle('Número días desde último contacto en campañas anteriores')
+
+ggplot(pdays_pos,aes(x=pdays, fill = term_deposit)) + geom_histogram(aes(y = ..density..)) + geom_density(alpha = 0) + facet_wrap(~term_deposit) + ggtitle("Número días desde último contacto en campañas anteriores")
+
+ggplot(pdays_pos ,aes(x=pdays, fill=term_deposit)) + geom_density(alpha = .5) + ggtitle("Número días desde último contacto en campañas anteriores")
+```
+ 
+Se puede apreciar como con aquellas personas que se contacta antes de los  primeros 210 días (7 meses) existe una mayor proporción a la hora de contratar el depósito que respecto a las personas con las que se tarda en contactar mas tiempo respecto de la campaña anterior.
+
+La mediana se encuentra en 224 días. Por ello, realizamos el corte dada la distribución y visualización de datos en una medida fácil de entender como son 7 meses = 210 días.
+
+Para poder ver si esta variable es útil para nuestro objetivo, procedemos a crear una nueva variable categórica.
+
+```{r}
+train = train %>% mutate(pdays_categorica = cut(pdays, breaks =  c(-1, 0, 210, 536), right = FALSE, include.lowest = TRUE, labels = c('No contacto', '<7 Meses', '>7 Meses')))
+```
+
+```{r}
+ftable(train$pdays_categorica)
+```
+
+```{r}
+describe(train$pdays_categorica)
+with(train, CrossTable(pdays_categorica, term_deposit, format = 'SPSS'))
+```
+
+```{r}
+ggplot(train, aes(x = pdays_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Contacto desde anterior campaña', y = 'prop') + ggtitle("Tiempo de contacto desde la anterior campaña")
+```
+ 
+El gráfico muestra como aquellos con los que se volvió a contactar en menos de 7 meses desde la campaña anterior tienen mayor probabilidad de contratar el depósito que con los que se contactó después de esos 7 meses o incluso no se había contactado anteriormente.
+
+
+### Variable poutcome
+  
+La variable poutcome es una variable cualitativa polítoma que muestra el resultado de contratación de la última campaña con respecto a cada cliente. Los cuatro valores categóricos son: "failure","other","success" y "unknown".
+
+Resultado de la última campaña de márketin (failure, nonexistent, success).
+
+```{r}
+train$poutcome = factor (train$poutcome)
+levels(train$poutcome)
+reorder_reorder = factor(train$reorder, levels = (c('failure','success','unknown','other')))
+levels(reorder_reorder)
+```
+
+La variable poutcome es una variable cualitativa polítoma que muestra el resultado de contratación de la última campaña con respecto a cada cliente. Los cuatro valores categóricos son: "failure","other","success" y "unknown"
+
+```{r}
+poutcome = factor(train$poutcome, levels = (c("failure","other","success","unknown")))
+```
+    
+Realizamos una tabla de frecuencias absoluta y de frecuencias relativa para ver su composición de forma univariante.  
+
+```{r}
+ftable(poutcome)
+prop.table(ftable(poutcome))
+```
+
+Gráficamente:
+
+```{r}
+ggplot(train, aes(poutcome)) + geom_bar(aes(y = ..prop.., group = 1 ), fill = 'skyblue2') + ggtitle("Resultado de la campaña anterior con el cliente")
+```
+
+Si evaluamos la variable poutcome con respecto a nuestra variable objetivo (term_deposit).
+
+```{r}
+with(train, CrossTable(poutcome, term_deposit, format = 'SPSS'))
+```
+
+En la tabla de frecuencias observamos que el porcentaje de contratación es mucho mayor para aquellos clientes que aceptaron la campaña anterior, lo que indica que asegura la satisfacción de un buen número de clientes. 
+  
+Gráficamente:
+```{r}
+ggplot(train, aes(x = poutcome, fill = term_deposit)) + geom_bar() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito según resultado campaña anterior")
+
+ggplot(train, aes(x = poutcome, fill = term_deposit)) + geom_bar(aes(y = ..prop.., group = 1 )) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Contratación depósito resultado campaña anterior")
+ggplot(train, aes(x = poutcome, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'POutcome', y = 'prop') + ggtitle("Contratación según el resultado de la campaña anterior")
+```
+  
+Hallamos la regresión logística múltiple en función de la variable poutcome mediante las categorías dumificadas. Calculamos los parámetros de la regresión logística múltiple. No incluimos la categoría unknown en la regresión puesto que son valores faltantes y se desconoce su causa.
+
+```{r}
+
+train <- dummy_cols (train, select_columns = c("poutcome"))
+modelo.log.m.poutcome<- glm(as.factor(term_deposit) ~ poutcome_success + poutcome_other + poutcome_failure, family = binomial, data = train )
+summary(modelo.log.m.poutcome)
+```
+
+Obtenemos los intervalos de confianza de los coeficientes parciales de correlación del modelo. Los intervalos que contengan el 0 indican que la variable dummy a la que están asociados no es significativa en el modelo. 
+```{r}
+confint(object = modelo.log.m.poutcome, level=0.95)
+```
+
+Los predictores estadísticamente significativos de la regresión son el intercept y todas las variables dumis poutcome_success, poutcome_other y poutcome_failure con pvalores menores que el nivel de significación impuesto (alfa = 0.05).
+
+Los coeficientes positivos indican que aumenta la probabilidad de contrato del depósito para la categoría asociada y los negativos la decrementan. A mayor valor del coeficiente, mayor probabilidad. Destaca la categoría success que tiene un coeficiente mucho mayor que las otras, lo que indica que si en la anterior campaña hubo éxito, la probabilidad de contratación en esta es mucho mayor.
+
+### Variable previous
+  
+Variable cuantitativa que muestra el número de contactos que se realizaron al cliente en campañas anteriores.
+
+```{r}
+describe(train$previous)
+```
+
+Se aprecia como el 75% de los clientes no había sido contactado anteriormente al igual que en la variable pdays. 
+
+También notar que un 15% de los clientes únicamente había sido contactado 1 vez y sólo un 5% más de 3 veces.
+
+```{r}
+ggplot(train, aes(x = previous)) +
+  geom_histogram(fill="skyblue2", colour="white") +
+  ggtitle('Número de contactos en campañas anteriores')
+
+ggplot(train,aes(x=previous, fill=term_deposit)) + geom_histogram() + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Número de contactos en campañas anteriores")
+
+ggplot(train,aes(x=previous, fill=term_deposit)) + geom_histogram(aes(y = ..density..)) + facet_wrap(~term_deposit, nrow = 1) + ggtitle("Número de contactos en campañas anteriores")
+```
+ 
+ 
+No se puede apreciar ninguna característica adiccional en esta variable dado el gran peso que tiene no haber tenido ningún contacto anteriormente con el cliente en campañas anteriores en la base de datos.
+
+Para poder encontrar algún patrón que influya en la variable objetivo debemos mirar con mayor precisión. Se evalua el 25% de los datos restantes para poder extraer una conclusión en base al número de veces que se contactó con el cliente en campañas anteriores.
+
+```{r}
+previous_pos = train %>% filter(previous >0)
+describe(previous_pos$previous)
+
+ggplot(previous_pos, aes(x = previous, colour = term_deposit)) +
+  geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
+  ggtitle('Número de contactos en campañas anteriores')
+
+ggplot(previous_pos,aes(x=previous, fill = term_deposit)) + geom_histogram(aes(y = ..density..), bins = 50) + facet_wrap(~term_deposit) + ggtitle("Número de contactos en campañas anteriores")
+
+```
+ 
+Para toda la muestra obviando aquellos a los que no se contactó. El 95% tuvo menos de 8 contactos.
+
+También se comprueba como a medida que va creciendo el número de contactos la probabilidad de contratar un depósito se reduce siendo ínfima cuando se supera el número de 10 contactos.
+
+Analizando más al detalle obviando outliers. Se puede ver la composición de la variable
+
+```{r}
+previous_pos = train %>% filter(previous >0 & previous <= 30)
+describe(previous_pos$previous)
+
+ggplot(previous_pos, aes(x = previous, colour = term_deposit)) +
+  geom_histogram() + facet_wrap(~term_deposit, ncol = 2) +
+  ggtitle('Número de contactos en campañas anteriores')
+
+ggplot(previous_pos,aes(x=previous, fill = term_deposit)) + geom_histogram(aes(y = ..density..), bins = 50) + facet_wrap(~term_deposit) + ggtitle("Número de contactos en campañas anteriores")
+
+```
+
+Por último, realizamos una tabla cruzada para ver más detalladamente la composición de la variable.
+
+```{r}
+with(train, CrossTable(previous, term_deposit, format = 'SPSS'))
+```
+
+Una vez analizada mediante esta tabla lo más razonable sería realizar una transformación de la variable cuantitativa en una variable binaria dependiendo de si se ha contactado anteriormente o no con el cliente.
+
+En torno al 85% de los clientes no habían sido contactados previamente.
+
+```{r}
+train = train %>% mutate(previous_categorica = cut(previous, breaks =  c(0, 1, 300), right = FALSE, include.lowest = TRUE, labels = c('Sin Contacto previo', 'Contacto previo')))
+```
+
+```{r}
+ftable(train$previous_categorica)
+```
+
+```{r}
+describe(train$previous_categorica)
+with(train, CrossTable(previous_categorica, term_deposit, format = 'SPSS'))
+```
+```{r}
+ggplot(train, aes(x = previous_categorica, fill = term_deposit)) + geom_bar(position= position_fill(reverse = TRUE)) + coord_flip() + labs(x = 'Contacto en campaña anterior', y = 'prop') + ggtitle("Contacto en la anterior campaña")
+```
+ 
+El gráfico muestra como aquellos con los que se contactó previamente tienen mayor probabilidad de contratar un depósito que aquellos con los que no se había contactado en la campaña anterior.
+
+Variable muy relacionada con pdays ya que determina el número de días que pasó desde que se contactó con el cliente en la campaña mientras que pdays determina el número de días que pasaron desde que se contactó en campañas anteriores con el cliente.
+
+Si se introduce una de las dos variables no se debe introducir la otra por problemas de multicolinealidad.
+
+
+### Variable term_deposit (Objetivo)
+  
+La variable term_deposit (variable binaria) indica si el cliente suscribe el depósito ("sí","no")
+```{r}
+prop.table(table(train$term_deposit))
+ggplot(train,aes(term_deposit))+geom_bar(fill="green")+ggtitle("Se suscribe el cliente?")
+```
+
+## Exploratorio multivariante
+
+```{r}
+pairs( age ~ duration + campaign + previous, data=train, main="Gráfico - Matriz de dispersión")
+library(corrplot)
+train %>% dplyr::select(age,balance,day, duration, campaign, pdays, previous) %>% cor( method ="spearman") %>% corrplot()
+```
+
+# ETL
+
+## Tratamiento de datos faltantes
+
+Las columnas que presentan datos faltantes son **job** y **education** donde venían codificados bajo la categoría unknown. Es lógico pensar que dicha categoría no sean NaNs sino una categoría propia con capacidad informativa por sí sola. Pero en el EDA no hemos observado una distribución diferente a la del resto de categorías, a diferencia de para contact o poutcome donde unknown si parece ser una categoría propia.
+
+El método de imputación utilizado aquí es sencillo. Se utiliza un RandomForest para predecir cada uno de los valores faltantes a partir del resto de variables predictoras que tenemos.
+
+
+```{r}
+train = data[trainIndex ,]
+train[train$education=='unknown',"education"] <- NA
+train[train$job=='unknown',"job"] <- NA
+```
+
+```{r}
+train <- train %>%
+    mutate(
+        job = as.factor(job),
+        education = as.factor(education)
+    )
+```
+
+```{r}
+d <- describe(train)
+d[c('job','education')]
+```
+
+La siguiente visualización nos indica que no parece existir ningún patrón en la falta de valores, el patrón más común es donde a la observación solo le falta el valor para **education**, algo lógico ya que es una variable con el ratio de valores missing más alto.
+
+```{r}
+aggr_plot <- aggr(train, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+ labels=names(train), cex.axis=.7, gap=3, cex.numbers=0.5,
+ ylab=c("Histogram of missing data","Pattern"))
+```
+
+Realizamos la imputación de valores.
+ 
+```{r warning = FALSE}
+train_imputed = missRanger(train, num.trees = 100)
+```
+
+```{r warning = FALSE}
+summary(train_imputed)
+```
+
+
+```{r warning = FALSE}
+describe(train_imputed)
+```
+
+
+```{r}
+train = train_imputed
+train$term_deposit = factor(train$term_deposit)
+```
+
+## Transformación de variables
+
+Una vez se han obtenido las imputaciones de los missing values vamos a proceder a realizar una selección de variables. El procedimiento es el siguiente, nos enfocamos en la variable con menor importancia, entendiendo que una variable es importante si el peso dado en la regresión se encuentra alejado de 0. A esta variable tratamos de buscarla un tratamiento diferente que pueda mejorar el desempeño del modelo así como aumentar su importancia dentro del ranking.
+
+Consideramos que una transformación mejora el desempeño si el F-score calculado mediante 10-fold cross validation mejora. Esta validación cruzada se ha aplicado en el conjunto de train, nunca en test para evitar sobreajustes.
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = train, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+```{r}
+importance <- varImp(model, scale=FALSE)
+# summarize importance
+print(rownames(importance$importance))
+```
+
+### Train poutcome
+
+La variable categórica que informa del resultado en la última campaña es la menos informativa, vamos a probar a realizar una re-categorización donde agrupemos en una categoría las que tienen una menor probabilidad de contratar (failure, other y unknown) y en otra categoría success.
+
+```{r}
+poutcome_aprox <- train
+poutcome_aprox[poutcome_aprox$poutcome=="failure" | poutcome_aprox$poutcome=="other" | poutcome_aprox$poutcome=="unknown","poutcome"] <- "bad_poutcome"
+poutcome_aprox[poutcome_aprox$poutcome=="success","poutcome"] <- "success_poutcome"
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = poutcome_aprox, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+
+Con esta nueva distribución de la variable no parece haber mejora ni cobrar mayor importancia en el ranking de variables, por lo que el siguiente paso sería a probar a eliminar dicha variable.
+
+
+### Variable previous
+
+La siguiente variable con menor importancia es previous, variable cuantitativa que muestra el número de contactos que realizó el cliente en campañas anteriores. En este caso, tal y como hicimos en el exploratorio, vamos a categorizar esta variable en dos categorías: Sin contacto previo y contacto previo.
+
+```{r}
+previous_aprox <-  train %>% mutate(previous_categorica = cut(previous, breaks =  c(0, 1, 300), right = FALSE, include.lowest = TRUE, labels = c('Sin Contacto previo', 'Contacto previo')))
+previous_aprox$previous <- NULL
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = previous_aprox, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+
+Esta transformación de la variable previous no parece mejorar el desempeño del modelo.
+
+### Variable pdays
+
+La siguiente variable en el ranking es pdays, variable cuantitativa que muestra los días que han pasado desde que se contactó con él en la anterior campaña. En el exploratorio se ha propuesto ya una categorización que vamos a comprobar ahora.
+
+
+```{r}
+pdays_aprox = train %>% mutate(pdays_categorica = cut(pdays, breaks =  c(-1, 0, 210, 536), right = FALSE, include.lowest = TRUE, labels = c('No contacto', '<7 Meses', '>7 Meses')))
+pdays_aprox$pdays <- NULL
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = pdays_aprox, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+Con la categorización de la variable pdays el modelo no parece mejorar.
+
+### Variable campaign
+
+La siguiente variable es campaign, variable cuantitativa que muestra el número de contactos en esta campaña. Ya en el EDA se ha propuesto una categorización que vamos a analizar a continuación.
+
+
+```{r}
+campaign_aprox = train %>% mutate(campaign_binaria = cut(campaign, breaks =  c(1, 2, 300), right = FALSE, include.lowest = TRUE, labels = c('1Contacto', '+1Contacto')))
+campaign_aprox$campaign <- NULL
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = campaign_aprox, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+El nuevo tratamiento de la variable campaign mejora el desempeño del modelo.
+
+```{r}
+train <- campaign_aprox
+```
+
+### Variable duration
+
+La siguiente variable es duration, variable cuantitativa que muestra la duración en segundos del último contacto mantenido con el cliente. En el EDA se ha propuesto realizar una transformación logarítmica a la variable para tratar de mejorar las diferencias entre la distribución de esta variable en los casos de contratación de los que no.
+
+```{r}
+duration_aprox <- train[train$duration>0,]
+duration_aprox$duration <- log10(duration_aprox$duration)
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = duration_aprox, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+Este tratamiento parece mejorar el desempeño del modelo.
+
+```{r}
+train <- duration_aprox
+```
+
+### Variable month
+
+Variable categórica que indica el mes en el que se produce el contacto actual con el cliente. Vamos a re-categorizar la variable en dos categorias en función de si es un mes con alto índice de contrataciones o no.
+
+```{r}
+month_aprox <- train
+```
+
+```{r}
+month_aprox[month_aprox$month=="jan","month"] <- "no_month"
+month_aprox[month_aprox$month=="feb","month"] <- "no_month"
+month_aprox[month_aprox$month=="mar","month"] <- "yes_month"
+month_aprox[month_aprox$month=="apr","month"] <- "no_month"
+month_aprox[month_aprox$month=="may","month"] <- "no_month"
+month_aprox[month_aprox$month=="jun","month"] <- "no_month"
+month_aprox[month_aprox$month=="jul","month"] <- "no_month"
+month_aprox[month_aprox$month=="aug","month"] <- "no_month"
+month_aprox[month_aprox$month=="sep","month"] <- "yes_month"
+month_aprox[month_aprox$month=="oct","month"] <- "yes_month"
+month_aprox[month_aprox$month=="nov","month"] <- "no_month"
+month_aprox[month_aprox$month=="dec","month"] <- "yes_month"
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = month_aprox, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+Este nuevo tratamiento no mejora el desempeño del modelo.
+
+### Variable contact
+
+Variable categórica que indica la forma en la que se contactó con el cliente. Vamos a tratar de reducir las categorías a escala binaria en función de si es unknown o no.
+
+```{r}
+contact_aprox <- train
+contact_aprox[contact_aprox$contact=="unknown","contact"] <- "unknown"
+contact_aprox[contact_aprox$contact!="unknown","contact"] <- "not_unknown"
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = contact_aprox, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+Este nuevo tratamiento parece mejorar el desempeño del modelo.
+
+```{r}
+train <- contact_aprox
+```
+
+### Variable balance
+
+Variable cuantitativa que indica el saldo del cliente. En el exploratorio se ha propuesto categorizar esta variable en 4 categorías (saldo negativo, bajo, medio y alto).
+
+```{r}
+balance_aprox = train %>% mutate(balance_categorica = cut(balance, breaks = c(-10000, 0, 2000, 10000, 105000), right = FALSE, labels = c('Negativo','Bajo','Medio', 'Alto')))
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = balance_aprox, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+Este tratamiento no aporta beneficio al modelo.
+
+### Variable age
+
+Variable cuantitativa que indica la edad del cliente. En el exploratorio se ha propuesto categorizar esta variable en 4 grupos (ancianos, mayores, joven y mediana edad).
+
+```{r}
+age_aprox = train %>% mutate(age_categorica = cut(age, breaks = c(0, 29, 44, 59, 100), right = TRUE, labels = c('Joven','MedianaEdad','Mayores','Ancianos')))
+age_aprox$age <- NULL
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = age_aprox, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+En este caso el modelo mejora con este tratamiento.
+
+```{r}
+train <- age_aprox
+```
+
+## Selección de variables
+
+Una vez hemos decidido las transformaciones de variables a aplicar vamos a seleccionar las variables predictoras que utilizar en el modelo. Para ello se han utilizado tres métodos de selección, los tres de tipo **wrapper**. Estas aproximaciones son backward, forward y both. Las tres aproximaciones se basan en una búsqueda de la mejor configuración de variables en base a optimizar el AIC del modelo.
+
+```{r}
+model <- glm(term_deposit ~ ., data = train,family='binomial')
+```
+
+```{r}
+backward_selection <- stepAIC(model, trace=FALSE, direction="backward")
+```
+
+```{r}
+summary(backward_selection)
+```
+
+```{r}
+empty_model <- glm(term_deposit ~ 1, data=train, family='binomial')
+horizonte <- formula(term_deposit ~ age_categorica + job + marital + education + default + balance + housing + loan + contact + day + month + duration + campaign_binaria + pdays + previous + poutcome)
+```
+
+```{r}
+forward_selection <- stepAIC(empty_model, trace=FALSE, direction="forward", scope=horizonte)
+```
+
+```{r}
+summary(forward_selection)
+```
+
+```{r}
+both_selection <- stepAIC(empty_model, trace=FALSE, direction="both", scope=horizonte)
+```
+
+Con las tres aproximaciones se ha llegado al mismo resultado de las mismas 14 variables predictoras, por ello a la hora de realizar el modelado solo se va a utilizar un modelo.
+
+# Modelado
+
+Esta fase va a ser inusualmente corta ya que estamos enfocados a usar solo regresión logística y solo tenemos una propuesta de input a probar. Aunque es cierto que el anterior apartado de selección de variables, al ser mediante métodos wrapper, se puede considerar como parte del modelado.
+
+```{r}
+train1 <- train[,c("job","marital","education","balance","housing","loan","contact","day","month","duration","pdays","poutcome","campaign_binaria" ,"age_categorica", "term_deposit")]
+```
+
+```{r}
+train.control <- trainControl(method = "cv", number = 10, summaryFunction=prSummary,classProbs = TRUE)
+```
+
+```{r}
+# Train the model
+model <- train(term_deposit ~., data = train1, method = "glm",
+               trControl = train.control)
+# Summarize the results
+print(model)
+```
+
+# Evaluación
+
+Una vez entrenado el modelo vamos a evaluarlo con el conjunto de test. La métrica de evaluación utilizada tanto en esta fase como a la hora de elegir que transformación de variables aplicar es el **F-score**. Esta métrica es la media armónica de precisión y recall, es decir, se busca alcanzar un acuerdo entre ambas métricas. La precisión es el ratio de verdaderos positivos frente al total de positivos estimados por el modelo. Por lo que esta métrica busca que el modelo realice una estimación certera. En cuanto al recall es el ratio de positivos acertados frente al total de positivos existentes, es decir, es la proporción de positivos que el modelo es capaz de detectar. Por lo que el F-score busca cuantificar este equilibrio entre estimaciones certeras y casos detectados de positivos por nuestro modelo.
+
+Es razonable pensar que una métrica más fácil de entender como es el accuracy es mejor opción. Pero se ha tratado de evitar dicha métrica debido a la paradoja del accuracy. Este efecto se presenta en situaciones donde las clases no están balanceadas, como en nuestro caso, donde hay una proporcion aproximada de 10/90. Al estar la variable objetivo desbalanceada puede darse la situación de que el modelo tome el atajo estadístico de estimar todos los casos en negativo, con lo que obtendría un accuracy de 0.90, creando la falsa creencia de que es un buen modelo. En cambio, el F-score daría 0 ya que se detectarían 0 positivos del total existente en el conjunto.
+
+Lo primero es aplicar la ETL ya establecedia con train a este nuevo subconjunto.
+```{r}
+test[test$education=='unknown',"education"] <- NA
+test[test$job=='unknown',"job"] <- NA
+test = missRanger(test, num.trees = 100)
+test = test %>% mutate(campaign_binaria = cut(campaign, breaks =  c(1, 2, 300), right = FALSE, include.lowest = TRUE, labels = c('1Contacto', '+1Contacto')))
+test$campaign <- NULL
+test <- test[test$duration>0,]
+test$duration <- log10(test$duration)
+test[test$contact=="unknown","contact"] <- "unknown"
+test[test$contact!="unknown","contact"] <- "not_unknown"
+test = test %>% mutate(age_categorica = cut(age, breaks = c(0, 29, 44, 59, 100), right = TRUE, labels = c('Joven','MedianaEdad','Mayores','Ancianos')))
+test$age <- NULL
+test$term_deposit <- as.factor(test$term_deposit)
+test$job <- as.factor(test$job)
+test$education <- as.factor(test$education)
+```
+
+```{r}
+test <- test[,c("job","marital","education","balance","housing","loan","contact","day","month","duration","pdays","poutcome","campaign_binaria" ,"age_categorica", "term_deposit")]
+```
+
+Obtenemos la matriz de confusión.
+```{r}
+predicciones <- predict(model, test)
+confusionMatrix(predicciones, test$term_deposit)$table
+```
+
+Calculamos la precisión en test:
+```{r}
+cm <- confusionMatrix(predicciones, test$term_deposit)$table
+cm[1,1]/sum(cm[1,1:2])
+```
+Calculamos el recall en test:
+```{r}
+cm[1,1]/sum(cm[1:2,1])
+```
+Calculamos el F-Score en test:
+```{r}
+prec <- cm[1,1]/sum(cm[1,1:2])
+recall <- cm[1,1]/sum(cm[1:2,1])
+2*prec*recall/(prec+recall)
+```
+
+
+
+
+
